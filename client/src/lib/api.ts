@@ -2,7 +2,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "./queryClient";
 import type { ScenarioData } from "@shared/scenario";
-import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics } from "@shared/schema";
+import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics, Notification } from "@shared/schema";
+import { NOTIFICATIONS_POLL_MS } from "@shared/rules";
 
 export interface ScenarioDto {
   id: number;
@@ -43,7 +44,10 @@ export const useSaveScenario = () =>
         : await apiRequest("POST", "/api/scenarios", body);
       return (await res.json()) as ScenarioDto;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/scenarios"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
   });
 
 export const useDeleteScenario = () =>
@@ -59,5 +63,22 @@ export const useSubmitAttempt = () =>
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/attempts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
+  });
+
+/** Уведомления: опрос сервера раз в NOTIFICATIONS_POLL_MS (TanStack Query refetchInterval) */
+export const useNotifications = (player: string) =>
+  useQuery<Notification[]>({
+    queryKey: ["/api/notifications", player],
+    queryFn: async () => (await apiRequest("GET", `/api/notifications?player=${encodeURIComponent(player)}`)).json(),
+    enabled: !!player,
+    refetchInterval: NOTIFICATIONS_POLL_MS,
+    staleTime: 0,
+  });
+
+export const useMarkRead = () =>
+  useMutation({
+    mutationFn: async (id: number) => (await apiRequest("POST", `/api/notifications/${id}/read`)).json(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });

@@ -5,6 +5,7 @@ import { seedStructure, seedChallenges, seedDemoHistory } from "./seed";
 import { insertScenarioSchema, insertAttemptSchema, LEADERBOARD_SCOPES } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
+import { notifyAll, syncNotifications, listNotifications, markRead, notifyAttemptOutcome } from "./notifications";
 
 const parseId = (req: Request) => Number.parseInt(String(req.params.id), 10);
 // Данные прогоняем через схему, чтобы старые сценарии мигрировали на лету (например, тип вагона "second" → "comfort")
@@ -39,7 +40,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/scenarios", (req, res) => {
     try {
       const body = insertScenarioSchema.parse(req.body);
-      res.status(201).json(rowToJson(storage.createScenario(body)));
+      const row = storage.createScenario(body);
+      notifyAll({ type: "new_scenario", title: `Новый сценарий: «${row.name}»`, body: row.description || "Доступен для тренировки и проверки.", link: `/play/${row.id}/training` });
+      res.status(201).json(rowToJson(row));
     } catch (e) {
       bad(res, e);
     }
@@ -74,7 +77,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/attempts", (req, res) => {
     try {
       const body = insertAttemptSchema.parse(req.body);
-      res.status(201).json(storage.createAttempt(body));
+      const player = storage.getOrCreatePlayer(body.playerName);
+      const before = storage.getProfile(body.playerName)!;
+      const row = storage.createAttempt(body);
+      notifyAttemptOutcome(player.id, before, storage.getProfile(body.playerName)!);
+      res.status(201).json(row);
     } catch (e) {
       bad(res, e);
     }
@@ -95,6 +102,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const name = String(req.query.player ?? "");
     if (!name) return res.status(400).json({ message: "Укажите player" });
     res.json(storage.challengesFor(storage.getOrCreatePlayer(name).id));
+  });
+
+  // ── Уведомления: клиент опрашивает раз в NOTIFICATIONS_POLL_MS ──
+  app.get("/api/notifications", (req, res) => {
+    const name = String(req.query.player ?? "");
+    if (!name) return res.status(400).json({ message: "Укажите player" });
+    res.json(listNotifications(syncNotifications(name).id));
+  });
+
+  app.post("/api/notifications/:id/read", (req, res) => {
+    const row = markRead(parseId(req));
+    if (!row) return res.status(404).json({ message: "Уведомление не найдено" });
+    res.json(row);
   });
 
   // Оргструктура для переключателя рейтинга и страницы руководителя

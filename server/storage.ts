@@ -39,7 +39,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, and, lte, gte } from "drizzle-orm";
 
-const sqlite = new Database("data.db");
+const sqlite = new Database(process.env.DB_PATH ?? "data.db") // DB_PATH=:memory: — для тестов;
 sqlite.pragma("journal_mode = WAL");
 export const db = drizzle(sqlite);
 
@@ -70,6 +70,17 @@ CREATE TABLE IF NOT EXISTS challenges (
   ends_at INTEGER NOT NULL,
   reward_xp INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  link TEXT,
+  read_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS notifications_player ON notifications (player_id, created_at);
 CREATE TABLE IF NOT EXISTS challenge_completions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   challenge_id INTEGER NOT NULL,

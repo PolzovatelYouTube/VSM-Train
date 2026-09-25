@@ -75,6 +75,8 @@ npm start          # продакшен-сервер из dist/
 | GET | `/api/players/:name` | профиль с ачивками |
 | GET | `/api/leaderboard?scope=team\|depot\|company&id=` | таблица лидеров по бригаде / депо / компании (по несгоревшим баллам) |
 | GET | `/api/structure` | депо и бригады |
+| GET | `/api/notifications?player=Имя` | уведомления (последние 30); при опросе сервер проверяет сгорающие баллы и новые челленджи |
+| POST | `/api/notifications/:id/read` | отметить уведомление прочитанным |
 | GET | `/api/teams/:id/analytics` | страница руководителя: проводники × навыки, готовность, 3 частые ошибки |
 | GET | `/api/challenges?player=Имя` | активные челленджи с прогрессом |
 

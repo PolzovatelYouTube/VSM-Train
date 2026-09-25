@@ -75,6 +75,22 @@ export const challengeCompletions = sqliteTable("challenge_completions", {
   completedAt: integer("completed_at").notNull(),
 });
 
+// ── Уведомления ──
+export const NOTIFICATION_TYPES = ["new_scenario", "challenge_started", "points_expiring", "achievement", "level_up"] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const notifications = sqliteTable("notifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  playerId: integer("player_id").notNull(),
+  type: text("type").$type<NotificationType>().notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  link: text("link"), // путь в приложении, куда ведёт клик
+  readAt: integer("read_at"),
+  createdAt: integer("created_at").notNull(),
+});
+export type Notification = typeof notifications.$inferSelect;
+
 export const challengeRuleSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("complete_category"), category: z.enum(EVENT_CATEGORIES), count: z.number().int().min(1) }),
   z.object({ type: z.literal("min_score"), score: z.number().int(), count: z.number().int().min(1) }),

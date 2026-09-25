@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Moon, Sun, LayoutGrid, Trophy, UserRound, UsersRound } from "lucide-react";
 import { Logo } from "./Logo";
+import { NotificationBell } from "./NotificationBell";
 import { useApp } from "@/lib/player";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
                 data-testid="input-player"
               />
             </label>
+            <NotificationBell />
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Переключить тему" data-testid="button-theme">
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>

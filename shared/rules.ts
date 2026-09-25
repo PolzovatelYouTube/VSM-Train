@@ -139,3 +139,12 @@ export const INSIGHT_MIN_DECISIONS = 2;
 export const INSIGHT_STRONG = 80;
 /** Категория — слабое место, если верных решений меньше (%) */
 export const INSIGHT_WEAK = 60;
+
+// ───────────────────────────── Уведомления ─────────────────────────────
+
+/** Напоминание о сгорающих баллах — не чаще раза в столько часов */
+export const EXPIRY_REMINDER_EVERY_HOURS = 24;
+/** Сколько последних уведомлений отдаёт API */
+export const NOTIFICATIONS_LIMIT = 30;
+/** Клиент опрашивает уведомления с таким интервалом */
+export const NOTIFICATIONS_POLL_MS = 20_000;
