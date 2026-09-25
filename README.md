@@ -88,7 +88,7 @@ React 18 + TypeScript + Vite, Tailwind v3 + shadcn/ui, TanStack Query, wouter (h
 - **Поменять правило начисления** (штраф, вес шкалы, порог ачивки) — одна константа в `shared/rules.ts`.
 - **Новый тип шага поведения** — добавить вариант в `behaviorStepSchema` (`shared/scenario.ts`), обработать в `tick()` (`shared/engine.ts`, обработка шагов актора), добавить форму в `StepEditor` (`editor-panels.tsx`).
 - **Новый тип клетки / вагона** — `CELL_KINDS`, `buildCar()` и отрисовка в `CarMap.tsx`.
-- **Новая ачивка** — `computeAchievements()` в `server/storage.ts`.
+- **Новая ачивка** — одна запись в справочнике `ACHIEVEMENTS` (`shared/achievements.ts`): правило описывается декларативно (`attempts`, `meter`, `reaction_below`, `accuracy`, `competency`, `challenges`).
 - **Новая метрика компетенций** — `computeResult()` в `shared/engine.ts`; лог `SimState.log` уже хранит каждое решение с временем реакции.
 
 ## Дорожная карта на хакатон

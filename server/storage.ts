@@ -15,13 +15,13 @@ import {
   type Team,
   type Attempt,
   type InsertAttempt,
-  type Achievement,
   type PlayerProfile,
   type LeaderboardEntry,
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
-import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
+import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
+import { evaluateAchievements } from "@shared/achievements";
 import {
   xpForAttempt,
   levelFor,
@@ -255,6 +255,18 @@ export class DatabaseStorage implements IStorage {
     return fresh;
   }
 
+  achievementsFor(playerId: number, rows: Attempt[]) {
+    const challengesCompleted = db
+      .select()
+      .from(challengeCompletions)
+      .where(eq(challengeCompletions.playerId, playerId))
+      .all().length;
+    return evaluateAchievements({
+      attempts: rows.map((r) => ({ ...r, competencies: JSON.parse(r.competencies) })),
+      challengesCompleted,
+    });
+  }
+
   listAttempts(playerName?: string) {
     if (!playerName) return db.select().from(attempts).orderBy(desc(attempts.createdAt)).all();
     const p = db.select().from(players).where(eq(players.name, playerName)).get();
@@ -276,7 +288,7 @@ export class DatabaseStorage implements IStorage {
       challenges: this.challengesFor(p.id),
       attempts: rows.length,
       bestScore,
-      achievements: computeAchievements(rows),
+      achievements: this.achievementsFor(p.id, rows),
     };
   }
 
@@ -306,48 +318,6 @@ export class DatabaseStorage implements IStorage {
 export const trainingPointsFor = (score: number) =>
   Math.max(TRAINING_POINTS.min, Math.round(score * TRAINING_POINTS.share));
 export const practicePointsFor = (score: number) => Math.round(score * PRACTICE_POINTS.share);
-
-function computeAchievements(rows: Attempt[]): Achievement[] {
-  const checks = rows.filter((r) => r.mode === "check");
-  return [
-    {
-      id: "first_run",
-      title: "Первый рейс",
-      description: "Пройти любой сценарий",
-      unlocked: rows.length > 0,
-    },
-    {
-      id: "safety_first",
-      title: "Безопасность превыше всего",
-      description: `Завершить рейс с рейтингом безопасности ${T.safetyFirst}+`,
-      unlocked: rows.some((r) => r.safety >= T.safetyFirst),
-    },
-    {
-      id: "diplomat",
-      title: "Дипломат",
-      description: `Лояльность пассажиров ${T.diplomat}+ по итогам рейса`,
-      unlocked: rows.some((r) => r.loyalty >= T.diplomat),
-    },
-    {
-      id: "lightning",
-      title: "Молния",
-      description: `Средняя реакция быстрее ${T.lightningMs / 1000} секунд`,
-      unlocked: rows.some((r) => r.avgReactionMs > 0 && r.avgReactionMs < T.lightningMs),
-    },
-    {
-      id: "flawless",
-      title: "Без ошибок",
-      description: "Все решения верные в проверочном рейсе",
-      unlocked: checks.some((r) => r.accuracy >= T.flawlessAccuracy),
-    },
-    {
-      id: "veteran",
-      title: "Ветеран ВСМ",
-      description: `${T.veteranRuns} пройденных рейсов`,
-      unlocked: rows.length >= T.veteranRuns,
-    },
-  ];
-}
 
 export const storage = new DatabaseStorage();
 
