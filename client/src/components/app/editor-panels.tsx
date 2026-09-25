@@ -8,7 +8,12 @@ import {
   type BehaviorStep,
   type GameEvent,
   type DialogueNode,
+  type DialogueOption,
   type Target,
+  type Condition,
+  type FlagValue,
+  ROLE_STEPS,
+  ROLE_STEP_LABEL,
   ACTOR_ROLES,
   ACTOR_ROLE_LABEL,
   STEP_LABEL,
@@ -469,7 +474,7 @@ export function EventsPanel({
             <Badge className={cn("shrink-0 border-0", CATEGORY_COLOR[e.category])}>{EVENT_CATEGORY_LABEL[e.category]}</Badge>
             <span className="truncate">{e.title}</span>
             <span className="ml-auto text-xs text-muted-foreground font-mono shrink-0">
-              {e.trigger.type === "time" ? `${e.trigger.atSec}с` : e.trigger.type === "actor" ? "актор" : "вручную"}
+              {e.trigger.type === "time" ? `${e.trigger.atSec}с` : e.trigger.type === "actor" ? "актор" : e.trigger.type === "condition" ? "условие" : "вручную"}
             </span>
           </button>
         ))}
@@ -517,16 +522,28 @@ function EventEditor({ data, mutate, ev, onDelete }: { data: ScenarioData; mutat
         <Field label="Триггер">
           <Select
             value={ev.trigger.type}
-            onValueChange={(v) => upd((x) => (x.trigger = v === "time" ? { type: "time", atSec: 30 } : v === "actor" ? { type: "actor" } : { type: "manual" }))}
+            onValueChange={(v) =>
+              upd((x) => (x.trigger =
+                v === "time" ? { type: "time", atSec: 30 }
+                : v === "actor" ? { type: "actor" }
+                : v === "condition" ? { type: "condition", if: { loyalty: { lt: 30 } } }
+                : { type: "manual" }))
+            }
           >
             <SelectTrigger className="h-8" data-testid="select-trigger"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="manual">Вручную (кнопка)</SelectItem>
               <SelectItem value="time">По времени рейса</SelectItem>
               <SelectItem value="actor">Из шага актора</SelectItem>
+              <SelectItem value="condition">По условию (шкала / флаг)</SelectItem>
             </SelectContent>
           </Select>
         </Field>
+        {ev.trigger.type === "condition" && (
+          <Field label="Запустить, когда" className="col-span-2">
+            <ConditionEditor value={ev.trigger.if} onChange={(c) => upd((x) => (x.trigger = { type: "condition", if: c ?? { loyalty: { lt: 30 } } }))} allowEmpty={false} />
+          </Field>
+        )}
         {ev.trigger.type === "time" && (
           <Field label="Секунда рейса">
             <NumberInput value={ev.trigger.atSec} min={0} onChange={(n) => upd((x) => (x.trigger = { type: "time", atSec: n }))} />
@@ -626,15 +643,202 @@ function NodeEditor({ ev, node, index, upd }: { ev: GameEvent; node: DialogueNod
             {o.correct && (
               <Input value={o.hint ?? ""} onChange={(e) => un((n) => (n.options[oi].hint = e.target.value))} className="h-7 text-xs" placeholder="Подсказка для режима тренировки" />
             )}
+            <OptionLogic ev={ev} node={node} option={o} onChange={(fn) => un((n) => fn(n.options[oi]))} />
           </div>
         ))}
         <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => un((n) => n.options.push({ id: uid("o_"), text: "", next: null, effects: { loyalty: 0, safety: 0 } }))}>
           <Plus className="size-3.5 mr-1" /> Вариант ответа
         </Button>
       </div>
+      <TimeoutEditor ev={ev} node={node} un={un} />
     </div>
   );
 }
+
+// ── Логика варианта: шаг ролевой модели, флаги, условие показа, условные переходы ──
+
+function NodeSelect({ ev, value, onChange, exclude }: { ev: GameEvent; value: string | null; onChange: (v: string | null) => void; exclude?: string }) {
+  return (
+    <Select value={value ?? "end"} onValueChange={(v) => onChange(v === "end" ? null : v)}>
+      <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="end">→ конец события</SelectItem>
+        {ev.nodes.filter((x) => x.id !== exclude).map((x) => (
+          <SelectItem key={x.id} value={x.id}>→ узел {ev.nodes.indexOf(x) + 1}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function OptionLogic({ ev, node, option: o, onChange }: { ev: GameEvent; node: DialogueNode; option: DialogueOption; onChange: (fn: (o: DialogueOption) => void) => void }) {
+  const flags = Object.entries(o.set ?? {});
+  const count = (o.step ? 1 : 0) + flags.length + (o.if ? 1 : 0) + (o.nextIf?.length ?? 0);
+  return (
+    <details className="text-xs" data-testid={`logic-${o.id}`}>
+      <summary className="cursor-pointer text-muted-foreground select-none">Логика варианта{count ? ` · ${count}` : ""}</summary>
+      <div className="mt-2 space-y-2.5">
+        <Field label="Шаг модели">
+          <Select value={o.step ?? "none"} onValueChange={(v) => onChange((x) => { if (v === "none") delete x.step; else x.step = v as DialogueOption["step"]; })}>
+            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— не размечено —</SelectItem>
+              {ROLE_STEPS.map((s) => (
+                <SelectItem key={s} value={s}>{ROLE_STEP_LABEL[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Выставляет флаги">
+          <div className="space-y-1.5">
+            {flags.map(([name, value], i) => (
+              <div key={i} className="flex gap-1.5">
+                <Input value={name} placeholder="имя флага" className="h-7 text-xs font-mono"
+                  onChange={(e) => onChange((x) => { x.set = renameKey(x.set!, name, e.target.value); })} />
+                <Select value={typeof value === "number" ? "number" : String(value)}
+                  onValueChange={(v) => onChange((x) => { x.set![name] = v === "number" ? 1 : v === "true"; })}>
+                  <SelectTrigger className="h-7 text-xs w-24"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">= да</SelectItem>
+                    <SelectItem value="false">= нет</SelectItem>
+                    <SelectItem value="number">= число</SelectItem>
+                  </SelectContent>
+                </Select>
+                {typeof value === "number" && (
+                  <NumberInput value={value} onChange={(n) => onChange((x) => { x.set![name] = n; })} className="h-7 w-14 font-mono" />
+                )}
+                <Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Удалить флаг"
+                  onClick={() => onChange((x) => { delete x.set![name]; if (!Object.keys(x.set!).length) delete x.set; })}>
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onChange((x) => { x.set = { ...x.set, [freeFlagName(x.set)]: true }; })}>
+              <Plus className="size-3.5 mr-1" /> Флаг
+            </Button>
+          </div>
+        </Field>
+
+        <Field label="Показывать, если">
+          <ConditionEditor value={o.if} onChange={(c) => onChange((x) => { if (c) x.if = c; else delete x.if; })} />
+        </Field>
+
+        <Field label="Условные переходы (первый сработавший, иначе основной)">
+          <div className="space-y-1.5">
+            {(o.nextIf ?? []).map((b, i) => (
+              <div key={i} className="rounded border p-1.5 space-y-1.5">
+                <ConditionEditor value={b.if} allowEmpty={false} onChange={(c) => onChange((x) => { if (c) x.nextIf![i].if = c; })} />
+                <div className="flex gap-1.5">
+                  <NodeSelect ev={ev} value={b.next} exclude={node.id} onChange={(v) => onChange((x) => { x.nextIf![i].next = v; })} />
+                  <Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Удалить переход"
+                    onClick={() => onChange((x) => { x.nextIf!.splice(i, 1); if (!x.nextIf!.length) delete x.nextIf; })}>
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" className="h-7 text-xs"
+              onClick={() => onChange((x) => { x.nextIf = [...(x.nextIf ?? []), { if: { loyalty: { lt: 30 } }, next: null }]; })}>
+              <Plus className="size-3.5 mr-1" /> Переход по условию
+            </Button>
+          </div>
+        </Field>
+      </div>
+    </details>
+  );
+}
+
+function TimeoutEditor({ ev, node, un }: { ev: GameEvent; node: DialogueNode; un: (fn: (n: DialogueNode) => void) => void }) {
+  const t = node.onTimeout;
+  if (!node.timerSec) return null;
+  return (
+    <div className="rounded border border-dashed border-[hsl(var(--danger))]/40 p-2 space-y-2 text-xs" data-testid={`timeout-${node.id}`}>
+      <label className="flex items-center gap-1.5">
+        <Switch checked={!!t} className="scale-90"
+          onCheckedChange={(v) => un((n) => { if (v) n.onTimeout = { next: null, effects: { loyalty: -15, safety: 0 }, text: "пассажир ушёл жаловаться" }; else delete n.onTimeout; })} />
+        Своя ветка на таймаут
+        {!t && <span className="text-muted-foreground">(иначе стандартный штраф)</span>}
+      </label>
+      {t && (
+        <>
+          <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-x-1.5">
+            <span className="text-[hsl(var(--loyalty))]">Лояльн.</span>
+            <NumberInput value={t.effects.loyalty} onChange={(v) => un((n) => (n.onTimeout!.effects.loyalty = v))} className="h-7 font-mono" />
+            <span className="text-[hsl(var(--safety))]">Безоп.</span>
+            <NumberInput value={t.effects.safety} onChange={(v) => un((n) => (n.onTimeout!.effects.safety = v))} className="h-7 font-mono" />
+          </div>
+          <NodeSelect ev={ev} value={t.next} exclude={node.id} onChange={(v) => un((n) => (n.onTimeout!.next = v))} />
+          <Input value={t.text ?? ""} onChange={(e) => un((n) => (n.onTimeout!.text = e.target.value))} className="h-7 text-xs" placeholder="Запись в журнал: что произошло" />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Простая форма условия: флаг / лояльность / безопасность + число. Составные (all/any) — только из JSON ──
+
+function ConditionEditor({ value, onChange, allowEmpty = true }: { value: Condition | undefined; onChange: (c: Condition | undefined) => void; allowEmpty?: boolean }) {
+  const kind = !value ? "none" : "flag" in value ? "flag" : "loyalty" in value ? "loyalty" : "safety" in value ? "safety" : "complex";
+  const setKind = (k: string) =>
+    onChange(k === "none" ? undefined : k === "flag" ? { flag: "" } : k === "loyalty" ? { loyalty: { lt: 30 } } : { safety: { lt: 40 } });
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <Select value={kind} onValueChange={setKind}>
+        <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {allowEmpty && <SelectItem value="none">всегда</SelectItem>}
+          <SelectItem value="flag">флаг</SelectItem>
+          <SelectItem value="loyalty">лояльность</SelectItem>
+          <SelectItem value="safety">безопасность</SelectItem>
+          {kind === "complex" && <SelectItem value="complex">составное (JSON)</SelectItem>}
+        </SelectContent>
+      </Select>
+      {value && "flag" in value && (
+        <>
+          <Input value={value.flag} placeholder="имя флага" className="h-7 text-xs font-mono flex-1 min-w-24" onChange={(e) => onChange({ ...value, flag: e.target.value })} />
+          <Select value={value.eq === false ? "unset" : "set"} onValueChange={(v) => onChange(v === "set" ? { flag: value.flag } : { flag: value.flag, eq: false })}>
+            <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="set">выставлен</SelectItem>
+              <SelectItem value="unset">не выставлен</SelectItem>
+            </SelectContent>
+          </Select>
+        </>
+      )}
+      {value && ("loyalty" in value || "safety" in value) && (() => {
+        const key = "loyalty" in value ? "loyalty" : "safety";
+        const range = "loyalty" in value ? value.loyalty : value.safety;
+        const op = range.lt !== undefined ? "lt" : "gte";
+        const num = range.lt ?? range.gte ?? 0;
+        const make = (o: string, n: number) => ({ [key]: o === "lt" ? { lt: n } : { gte: n } }) as Condition;
+        return (
+          <>
+            <Select value={op} onValueChange={(o) => onChange(make(o, num))}>
+              <SelectTrigger className="h-7 text-xs w-16"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lt">&lt;</SelectItem>
+                <SelectItem value="gte">≥</SelectItem>
+              </SelectContent>
+            </Select>
+            <NumberInput value={num} min={0} max={100} onChange={(n) => onChange(make(op, n))} className="h-7 w-16 font-mono" />
+          </>
+        );
+      })()}
+      {kind === "complex" && <span className="text-muted-foreground self-center">задано в JSON сценария</span>}
+    </div>
+  );
+}
+
+const freeFlagName = (set: Record<string, FlagValue> | undefined) => {
+  let i = 1;
+  while (set && `flag${i}` in set) i++;
+  return `flag${i}`;
+};
+
+/** Переименование ключа с сохранением порядка */
+const renameKey = (obj: Record<string, FlagValue>, from: string, to: string) =>
+  Object.fromEntries(Object.entries(obj).map(([k, v]) => [k === from ? to : k, v]));
 
 // ───────────────────────────── Состав и настройки ─────────────────────────────
 
