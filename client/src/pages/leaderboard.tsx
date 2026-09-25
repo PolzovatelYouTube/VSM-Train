@@ -3,10 +3,12 @@ import { Shell } from "@/components/app/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useLeaderboard, useProfile, useAttempts, useScenarios } from "@/lib/api";
+import type { LevelInfo } from "@shared/gamification";
 
 export default function Leaderboard() {
   const { player } = useApp();
@@ -60,6 +62,9 @@ export default function Leaderboard() {
                       </TableCell>
                       <TableCell className="font-medium">
                         {e.name} {e.name === player && <span className="text-xs text-muted-foreground">(вы)</span>}
+                        <div className="text-xs text-muted-foreground font-normal">
+                          Ур. {e.level} · {e.levelTitle}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular font-semibold">{e.practicePoints}</TableCell>
                       <TableCell className="text-right font-mono tabular hidden sm:table-cell">{e.trainingPoints}</TableCell>
@@ -79,6 +84,7 @@ export default function Leaderboard() {
               <CardTitle className="text-base">Профиль: {player}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {profile && <LevelBar level={profile.level} />}
               <div className="grid grid-cols-2 gap-3">
                 <Stat icon={<ClipboardCheck className="size-4" />} label="Практика" value={profile?.practicePoints ?? 0} />
                 <Stat icon={<GraduationCap className="size-4" />} label="Обучение" value={profile?.trainingPoints ?? 0} />
@@ -137,6 +143,22 @@ function Stat({ icon, label, value }: { icon?: React.ReactNode; label: string; v
     <div className="rounded-md bg-muted/60 p-2.5">
       <div className="text-xs text-muted-foreground inline-flex items-center gap-1">{icon}{label}</div>
       <div className="font-mono text-xl font-bold tabular leading-tight">{value}</div>
+    </div>
+  );
+}
+
+export function LevelBar({ level }: { level: LevelInfo }) {
+  return (
+    <div data-testid="level-bar">
+      <div className="flex items-baseline justify-between text-sm mb-1">
+        <span className="font-semibold">
+          Уровень {level.level} · {level.title}
+        </span>
+        <span className="font-mono text-xs tabular text-muted-foreground">
+          {level.nextLevelXp === null ? `${level.xp} XP · максимум` : `${level.xp} / ${level.nextLevelXp} XP`}
+        </span>
+      </div>
+      <Progress value={level.progress * 100} className="h-1.5" />
     </div>
   );
 }

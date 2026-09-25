@@ -18,6 +18,7 @@ import {
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
+import { xpForAttempt, levelFor } from "@shared/gamification";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc } from "drizzle-orm";
@@ -73,6 +74,8 @@ function ensureColumn(table: string, column: string, ddl: string) {
   if (!cols.some((c) => c.name === column)) sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
 }
 ensureColumn("players", "team_id", "INTEGER");
+ensureColumn("players", "xp", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("attempts", "xp", "INTEGER NOT NULL DEFAULT 0");
 
 export interface IStorage {
   listScenarios(): ScenarioRow[];
@@ -145,6 +148,7 @@ export class DatabaseStorage implements IStorage {
 
   createAttempt(a: InsertAttempt) {
     const player = this.getOrCreatePlayer(a.playerName);
+    const xp = xpForAttempt(a.mode, a.score);
     const row = db
       .insert(attempts)
       .values({
@@ -158,20 +162,22 @@ export class DatabaseStorage implements IStorage {
         avgReactionMs: a.avgReactionMs,
         competencies: JSON.stringify(a.competencies),
         log: JSON.stringify(a.log),
+        xp,
         createdAt: Date.now(),
       })
       .returning()
       .get();
 
-    // Баллы обучения — за любое прохождение тренировки, баллы практики — только за проверочный рейс
+    // Баллы обучения — за любое прохождение тренировки, баллы практики — только за проверочный рейс.
+    // Опыт (xp) — за любую попытку, он не сгорает и определяет уровень.
     if (a.mode === "training") {
       db.update(players)
-        .set({ trainingPoints: player.trainingPoints + trainingPointsFor(a.score) })
+        .set({ trainingPoints: player.trainingPoints + trainingPointsFor(a.score), xp: player.xp + xp })
         .where(eq(players.id, player.id))
         .run();
     } else {
       db.update(players)
-        .set({ practicePoints: player.practicePoints + practicePointsFor(a.score) })
+        .set({ practicePoints: player.practicePoints + practicePointsFor(a.score), xp: player.xp + xp })
         .where(eq(players.id, player.id))
         .run();
     }
@@ -190,7 +196,7 @@ export class DatabaseStorage implements IStorage {
     if (!p) return undefined;
     const rows = this.listAttempts(name);
     const bestScore = rows.reduce((m, r) => Math.max(m, r.score), 0);
-    return { ...p, attempts: rows.length, bestScore, achievements: computeAchievements(rows) };
+    return { ...p, level: levelFor(p.xp), attempts: rows.length, bestScore, achievements: computeAchievements(rows) };
   }
 
   leaderboard(): LeaderboardEntry[] {
@@ -198,8 +204,12 @@ export class DatabaseStorage implements IStorage {
     return ps
       .map((p) => {
         const rows = db.select().from(attempts).where(eq(attempts.playerId, p.id)).all();
+        const level = levelFor(p.xp);
         return {
           name: p.name,
+          xp: p.xp,
+          level: level.level,
+          levelTitle: level.title,
           trainingPoints: p.trainingPoints,
           practicePoints: p.practicePoints,
           attempts: rows.length,

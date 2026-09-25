@@ -89,3 +89,19 @@ export const ACHIEVEMENT_THRESHOLDS = {
   flawlessAccuracy: 0.999, // все решения верные
   veteranRuns: 10, // пройденных рейсов
 };
+
+// ───────────────────────────── Опыт и уровни ─────────────────────────────
+
+/** Опыт за попытку: base + score · perScore. Проверочный рейс ценится выше тренировки. */
+export const XP_RULES = {
+  training: { base: 10, perScore: 0.2 },
+  check: { base: 20, perScore: 0.5 },
+};
+
+/** Пороги уровней по накопленному опыту (по возрастанию) */
+export const LEVELS = [
+  { minXp: 0, title: "Стажёр" },
+  { minXp: 150, title: "Проводник" },
+  { minXp: 400, title: "Старший проводник" },
+  { minXp: 900, title: "Наставник" },
+];
