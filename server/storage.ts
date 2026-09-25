@@ -128,7 +128,7 @@ export interface IStorage {
   listTeams(): Team[];
   getOrCreatePlayer(name: string): Player;
   getProfile(name: string): PlayerProfile | undefined;
-  createAttempt(a: InsertAttempt): Attempt;
+  createAttempt(a: InsertAttempt, createdAt?: number): Attempt;
   challengesFor(playerId: number): ChallengeProgress[];
   awardChallenges(playerId: number): ChallengeProgress[];
   listAttempts(playerName?: string): Attempt[];
@@ -189,7 +189,8 @@ export class DatabaseStorage implements IStorage {
     return db.insert(players).values({ name, teamId: firstTeam?.id ?? null }).returning().get();
   }
 
-  createAttempt(a: InsertAttempt) {
+  /** createdAt передаётся только сидом демо-истории; из API попытка всегда создаётся «сейчас» */
+  createAttempt(a: InsertAttempt, createdAt = Date.now()) {
     const player = this.getOrCreatePlayer(a.playerName);
     const xp = xpForAttempt(a.mode, a.score);
     const points = a.mode === "check" ? practicePointsFor(a.score) : 0;
@@ -208,7 +209,7 @@ export class DatabaseStorage implements IStorage {
         log: JSON.stringify(a.log),
         xp,
         points,
-        createdAt: Date.now(),
+        createdAt,
       })
       .returning()
       .get();

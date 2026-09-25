@@ -1,10 +1,12 @@
 /**
- * Демо-оргструктура: 2 депо × 2 бригады × 5 проводников.
+ * Демо-данные: 2 депо × 2 бригады × 5 проводников, челленджи и история рейсов.
  * СИНТЕТИЧЕСКИЕ ДАННЫЕ: имена вымышлены, совпадения с реальными людьми случайны.
  * Реальных персональных данных сотрудников в демо-среде нет (152-ФЗ).
  */
-import { db } from "./storage";
-import { depots, teams, players, challenges, type ChallengeRule } from "@shared/schema";
+import { db, storage } from "./storage";
+import { depots, teams, players, challenges, attempts, type ChallengeRule } from "@shared/schema";
+import { scenarioDataSchema, type ScenarioData } from "@shared/scenario";
+import { createSim, openNode, findNode, visibleOptions, chooseOption, timeoutDialogue, computeResult, evalCondition } from "@shared/engine";
 
 const DEMO_STRUCTURE = [
   {
@@ -52,5 +54,82 @@ export function seedChallenges() {
     db.insert(challenges)
       .values({ title: c.title, rule: JSON.stringify(c.rule), startsAt: start, endsAt: start + c.days * DAY_MS, rewardXp: c.rewardXp })
       .run();
+  }
+}
+
+// ───────────────────────────── Демо-история рейсов ─────────────────────────────
+
+/** Детерминированный ГСЧ, чтобы демо-данные были одинаковыми при каждом запуске */
+function mulberry32(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Прогоняет бота по диалогам сценария тем же движком, что и игрок:
+ * с вероятностью skill выбирает верный вариант, с вероятностью lateness не успевает.
+ */
+function botRun(data: ScenarioData, rnd: () => number, skill: number, lateness: number) {
+  const state = createSim(data);
+  for (const ev of data.events) {
+    if (ev.trigger.type === "condition" && !evalCondition(ev.trigger.if, state)) continue;
+    openNode(state, data, ev.id, ev.startNode);
+    while (state.active) {
+      const node = findNode(data, state.active.eventId, state.active.nodeId);
+      const options = node ? visibleOptions(node, state) : [];
+      const limitMs = (state.active.limitSec ?? node?.timerSec ?? 15) * 1000;
+      if (!options.length || (node?.timerSec && rnd() < lateness)) {
+        timeoutDialogue(state, data);
+        state.log[state.log.length - 1].reactionMs = limitMs;
+        continue;
+      }
+      const right = options.filter((o) => o.correct);
+      const wrong = options.filter((o) => !o.correct);
+      const pool = right.length && (rnd() < skill || !wrong.length) ? right : wrong;
+      chooseOption(state, data, pool[Math.floor(rnd() * pool.length)]);
+      state.log[state.log.length - 1].reactionMs = Math.round(limitMs * (0.2 + rnd() * (1.1 - skill)));
+    }
+  }
+  return { log: state.log, result: computeResult(state, data) };
+}
+
+/** Демо-история: 3–9 рейсов у каждого синтетического проводника за последние 20 дней (часть баллов уже сгорела) */
+export function seedDemoHistory() {
+  if (db.select().from(attempts).get()) return;
+  const list = storage.listScenarios().flatMap((s) => {
+    const parsed = scenarioDataSchema.safeParse(JSON.parse(s.data));
+    return parsed.success ? [{ id: s.id, data: parsed.data }] : [];
+  });
+  if (!list.length) return;
+  const rnd = mulberry32(2026);
+  const now = Date.now();
+  for (const name of DEMO_STRUCTURE.flatMap((d) => d.teams.flatMap((t) => t.conductors))) {
+    const skill = 0.45 + rnd() * 0.5;
+    const lateness = 0.02 + rnd() * 0.18;
+    const runs = 3 + Math.floor(rnd() * 7);
+    const times = Array.from({ length: runs }, () => now - Math.floor(rnd() * 20 * DAY_MS)).sort((a, b) => a - b);
+    for (const createdAt of times) {
+      const sc = list[Math.floor(rnd() * list.length)];
+      const { log, result } = botRun(sc.data, rnd, skill, lateness);
+      storage.createAttempt(
+        {
+          playerName: name,
+          scenarioId: sc.id,
+          mode: rnd() < 0.7 ? "check" : "training",
+          score: result.score,
+          loyalty: result.loyalty,
+          safety: result.safety,
+          accuracy: result.accuracy,
+          avgReactionMs: Math.round(result.avgReactionMs),
+          competencies: result.competencies,
+          log,
+        },
+        createdAt,
+      );
+    }
   }
 }

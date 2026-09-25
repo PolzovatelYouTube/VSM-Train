@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
 import { storage, seedScenarios } from "./storage";
-import { seedStructure, seedChallenges } from "./seed";
+import { seedStructure, seedChallenges, seedDemoHistory } from "./seed";
 import { insertScenarioSchema, insertAttemptSchema, LEADERBOARD_SCOPES } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
@@ -23,6 +23,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   seedScenarios();
   seedStructure();
   seedChallenges();
+  seedDemoHistory();
 
   // ── Сценарии ──
   app.get("/api/scenarios", (_req, res) => {
