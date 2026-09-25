@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
 import { storage, seedScenarios } from "./storage";
-import { seedStructure } from "./seed";
+import { seedStructure, seedChallenges } from "./seed";
 import { insertScenarioSchema, insertAttemptSchema } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
@@ -22,6 +22,7 @@ function bad(res: Response, err: unknown) {
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   seedScenarios();
   seedStructure();
+  seedChallenges();
 
   // ── Сценарии ──
   app.get("/api/scenarios", (_req, res) => {
@@ -87,6 +88,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const name = decodeURIComponent(String(req.params.name));
     storage.getOrCreatePlayer(name);
     res.json(storage.getProfile(name));
+  });
+
+  app.get("/api/challenges", (req, res) => {
+    const name = String(req.query.player ?? "");
+    if (!name) return res.status(400).json({ message: "Укажите player" });
+    res.json(storage.challengesFor(storage.getOrCreatePlayer(name).id));
   });
 
   // Оргструктура для переключателя рейтинга и страницы руководителя

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { xpForAttempt, levelFor, activePoints, expiringPoints } from "../shared/gamification";
+import { xpForAttempt, levelFor, activePoints, expiringPoints, challengeProgress, type ProgressRow } from "../shared/gamification";
 import { LEVELS, XP_RULES, POINTS_TTL_DAYS } from "../shared/rules";
 
 describe("опыт и уровни", () => {
@@ -42,5 +42,28 @@ describe("сгорающие баллы", () => {
   it("нечему сгорать — null", () => {
     expect(expiringPoints([row(1, 80)], now)).toBeNull();
     expect(expiringPoints([row(POINTS_TTL_DAYS + 1, 80)], now)).toBeNull(); // уже сгорели
+  });
+});
+
+describe("челленджи", () => {
+  const win = { startsAt: 1000, endsAt: 2000 };
+  const med = { category: "medical" as const, optionId: "o1" };
+  const timeout = { category: "conflict" as const, optionId: null };
+  const row = (createdAt: number, score: number, log: ProgressRow["log"]) => ({ createdAt, score, log });
+
+  it("complete_category: считаются только попытки с нужной категорией внутри окна", () => {
+    const rows = [row(1500, 50, [med]), row(1600, 50, [timeout]), row(2500, 50, [med])];
+    expect(challengeProgress({ type: "complete_category", category: "medical", count: 2 }, win, rows)).toEqual({ current: 1, target: 2, done: false });
+  });
+
+  it("min_score и no_timeouts", () => {
+    const rows = [row(1100, 90, [med]), row(1200, 60, [med, timeout]), row(1300, 85, [med])];
+    expect(challengeProgress({ type: "min_score", score: 80, count: 2 }, win, rows).done).toBe(true);
+    expect(challengeProgress({ type: "no_timeouts", count: 3 }, win, rows).current).toBe(2);
+  });
+
+  it("прогресс не превышает цель", () => {
+    const rows = [row(1100, 90, [med]), row(1200, 95, [med]), row(1300, 99, [med])];
+    expect(challengeProgress({ type: "min_score", score: 80, count: 2 }, win, rows)).toEqual({ current: 2, target: 2, done: true });
   });
 });

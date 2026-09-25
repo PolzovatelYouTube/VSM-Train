@@ -4,7 +4,7 @@
  * Реальных персональных данных сотрудников в демо-среде нет (152-ФЗ).
  */
 import { db } from "./storage";
-import { depots, teams, players } from "@shared/schema";
+import { depots, teams, players, challenges, type ChallengeRule } from "@shared/schema";
 
 const DEMO_STRUCTURE = [
   {
@@ -34,5 +34,23 @@ export function seedStructure() {
         db.insert(players).values({ name, teamId: team.id }).onConflictDoNothing().run();
       }
     }
+  }
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const DEMO_CHALLENGES: { title: string; rule: ChallengeRule; days: number; rewardXp: number }[] = [
+  { title: "Неделя медицины", rule: { type: "complete_category", category: "medical", count: 3 }, days: 7, rewardXp: 60 },
+  { title: "Ни одного пропуска", rule: { type: "no_timeouts", count: 2 }, days: 5, rewardXp: 40 },
+];
+
+/** Демо-челленджи: стартовали вчера, чтобы на защите они были активны */
+export function seedChallenges() {
+  if (db.select().from(challenges).get()) return;
+  const start = Date.now() - DAY_MS;
+  for (const c of DEMO_CHALLENGES) {
+    db.insert(challenges)
+      .values({ title: c.title, rule: JSON.stringify(c.rule), startsAt: start, endsAt: start + c.days * DAY_MS, rewardXp: c.rewardXp })
+      .run();
   }
 }

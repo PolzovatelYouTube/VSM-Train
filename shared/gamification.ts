@@ -3,6 +3,9 @@
  * Все числа — из ./rules, чтобы правило менялось в одном месте.
  */
 import { XP_RULES, LEVELS, POINTS_TTL_DAYS, EXPIRY_WARNING_DAYS } from "./rules";
+import { EVENT_CATEGORY_LABEL } from "./scenario";
+import type { ChallengeRule } from "./schema";
+import type { LogEntry } from "./engine";
 
 export type AttemptMode = "training" | "check";
 
@@ -67,4 +70,46 @@ export function expiringPoints(rows: PointsRow[], now: number): ExpiringPoints |
     points: soon.reduce((s, r) => s + r.points, 0),
     inDays: Math.max(1, Math.ceil((nearest - now) / DAY_MS)),
   };
+}
+
+// ───────────────────────────── Челленджи ─────────────────────────────
+
+/** Минимум полей попытки для подсчёта прогресса челленджа (log уже распарсен) */
+export interface ProgressRow {
+  score: number;
+  createdAt: number;
+  log: Pick<LogEntry, "category" | "optionId">[];
+}
+
+/** Подходит ли попытка под правило челленджа */
+export function attemptCounts(rule: ChallengeRule, row: ProgressRow): boolean {
+  switch (rule.type) {
+    case "complete_category":
+      return row.log.some((l) => l.category === rule.category);
+    case "min_score":
+      return row.score >= rule.score;
+    case "no_timeouts":
+      return row.log.length > 0 && row.log.every((l) => l.optionId !== null);
+  }
+}
+
+/** Прогресс по попыткам внутри окна челленджа */
+export function challengeProgress(
+  rule: ChallengeRule,
+  window: { startsAt: number; endsAt: number },
+  rows: ProgressRow[],
+) {
+  const current = rows.filter((r) => r.createdAt >= window.startsAt && r.createdAt <= window.endsAt && attemptCounts(rule, r)).length;
+  return { current: Math.min(current, rule.count), target: rule.count, done: current >= rule.count };
+}
+
+export function describeRule(rule: ChallengeRule): string {
+  switch (rule.type) {
+    case "complete_category":
+      return `Пройти ${rule.count} рейс(а) с ситуацией «${EVENT_CATEGORY_LABEL[rule.category]}»`;
+    case "min_score":
+      return `Набрать ${rule.score}+ баллов в ${rule.count} рейсах`;
+    case "no_timeouts":
+      return `Пройти ${rule.count} рейс(а) без пропущенных решений`;
+  }
 }

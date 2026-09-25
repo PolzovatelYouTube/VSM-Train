@@ -1,4 +1,4 @@
-import { Trophy, Medal, Lock, GraduationCap, ClipboardCheck, Flame } from "lucide-react";
+import { Trophy, Medal, Lock, GraduationCap, ClipboardCheck, Flame, Target } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,33 @@ export default function Leaderboard() {
               </div>
             </CardContent>
           </Card>
+
+          {!!profile?.challenges.length && (
+            <Card data-testid="card-challenges">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base inline-flex items-center gap-2">
+                  <Target className="size-4 text-[hsl(var(--safety))]" /> Челленджи
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {profile.challenges.map((c) => (
+                  <div key={c.id} data-testid={`challenge-${c.id}`}>
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="font-medium">{c.title}</span>
+                      <span className="shrink-0 font-mono text-xs tabular text-muted-foreground">+{c.rewardXp} XP</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {c.description} · до {new Date(c.endsAt).toLocaleDateString("ru-RU")}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress value={(c.current / c.target) * 100} className="h-1.5 flex-1" />
+                      <span className="font-mono text-xs tabular">{c.done ? "готово" : `${c.current}/${c.target}`}</span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-2">

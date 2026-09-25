@@ -4,6 +4,10 @@ import {
   teams,
   players,
   attempts,
+  challenges,
+  challengeCompletions,
+  challengeRuleSchema,
+  type ChallengeProgress,
   type ScenarioRow,
   type InsertScenario,
   type Player,
@@ -18,10 +22,18 @@ import {
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
-import { xpForAttempt, levelFor, activePoints, expiringPoints } from "@shared/gamification";
+import {
+  xpForAttempt,
+  levelFor,
+  activePoints,
+  expiringPoints,
+  challengeProgress,
+  describeRule,
+  type ProgressRow,
+} from "@shared/gamification";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, lte, gte } from "drizzle-orm";
 
 const sqlite = new Database("data.db");
 sqlite.pragma("journal_mode = WAL");
@@ -45,6 +57,21 @@ CREATE TABLE IF NOT EXISTS teams (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   depot_id INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS challenges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  rule TEXT NOT NULL,
+  starts_at INTEGER NOT NULL,
+  ends_at INTEGER NOT NULL,
+  reward_xp INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS challenge_completions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  challenge_id INTEGER NOT NULL,
+  player_id INTEGER NOT NULL,
+  completed_at INTEGER NOT NULL,
+  UNIQUE (challenge_id, player_id)
 );
 CREATE TABLE IF NOT EXISTS players (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +125,8 @@ export interface IStorage {
   getOrCreatePlayer(name: string): Player;
   getProfile(name: string): PlayerProfile | undefined;
   createAttempt(a: InsertAttempt): Attempt;
+  challengesFor(playerId: number): ChallengeProgress[];
+  awardChallenges(playerId: number): ChallengeProgress[];
   listAttempts(playerName?: string): Attempt[];
   leaderboard(): LeaderboardEntry[];
 }
@@ -192,7 +221,38 @@ export class DatabaseStorage implements IStorage {
         .where(eq(players.id, player.id))
         .run();
     }
+    this.awardChallenges(player.id);
     return row;
+  }
+
+  /** Челленджи, активные сейчас, с прогрессом игрока */
+  challengesFor(playerId: number): ChallengeProgress[] {
+    const now = Date.now();
+    const active = db.select().from(challenges).where(and(lte(challenges.startsAt, now), gte(challenges.endsAt, now))).all();
+    const rows: ProgressRow[] = db
+      .select()
+      .from(attempts)
+      .where(eq(attempts.playerId, playerId))
+      .all()
+      .map((r) => ({ score: r.score, createdAt: r.createdAt, log: JSON.parse(r.log) }));
+    return active.map((c) => {
+      const rule = challengeRuleSchema.parse(JSON.parse(c.rule));
+      return { ...c, description: describeRule(rule), ...challengeProgress(rule, c, rows) };
+    });
+  }
+
+  /** Начислить опыт за челленджи, выполненные этой попыткой. Возвращает только что выполненные. */
+  awardChallenges(playerId: number): ChallengeProgress[] {
+    const already = new Set(
+      db.select().from(challengeCompletions).where(eq(challengeCompletions.playerId, playerId)).all().map((c) => c.challengeId),
+    );
+    const fresh = this.challengesFor(playerId).filter((c) => c.done && !already.has(c.id));
+    for (const c of fresh) {
+      db.insert(challengeCompletions).values({ challengeId: c.id, playerId, completedAt: Date.now() }).run();
+      const p = db.select().from(players).where(eq(players.id, playerId)).get()!;
+      db.update(players).set({ xp: p.xp + c.rewardXp }).where(eq(players.id, playerId)).run();
+    }
+    return fresh;
   }
 
   listAttempts(playerName?: string) {
@@ -213,6 +273,7 @@ export class DatabaseStorage implements IStorage {
       level: levelFor(p.xp),
       activePoints: activePoints(rows, now),
       expiring: expiringPoints(rows, now),
+      challenges: this.challengesFor(p.id),
       attempts: rows.length,
       bestScore,
       achievements: computeAchievements(rows),

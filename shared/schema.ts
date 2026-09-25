@@ -5,7 +5,7 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { scenarioDataSchema } from "./scenario";
+import { scenarioDataSchema, EVENT_CATEGORIES } from "./scenario";
 import type { LevelInfo, ExpiringPoints } from "./gamification";
 
 export const scenarios = sqliteTable("scenarios", {
@@ -55,6 +55,45 @@ export const attempts = sqliteTable("attempts", {
   createdAt: integer("created_at").notNull(),
 });
 
+// Челлендж — ограниченное по времени задание с наградой в опыте.
+// rule — декларативное правило (challengeRuleSchema), прогресс считается по попыткам в окне startsAt..endsAt.
+export const challenges = sqliteTable("challenges", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  rule: text("rule").notNull(), // JSON ChallengeRule
+  startsAt: integer("starts_at").notNull(),
+  endsAt: integer("ends_at").notNull(),
+  rewardXp: integer("reward_xp").notNull(),
+});
+
+/** Кто и когда выполнил челлендж — чтобы награда начислялась один раз */
+export const challengeCompletions = sqliteTable("challenge_completions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  challengeId: integer("challenge_id").notNull(),
+  playerId: integer("player_id").notNull(),
+  completedAt: integer("completed_at").notNull(),
+});
+
+export const challengeRuleSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("complete_category"), category: z.enum(EVENT_CATEGORIES), count: z.number().int().min(1) }),
+  z.object({ type: z.literal("min_score"), score: z.number().int(), count: z.number().int().min(1) }),
+  z.object({ type: z.literal("no_timeouts"), count: z.number().int().min(1) }),
+]);
+export type ChallengeRule = z.infer<typeof challengeRuleSchema>;
+export type ChallengeRow = typeof challenges.$inferSelect;
+
+export interface ChallengeProgress {
+  id: number;
+  title: string;
+  description: string;
+  rewardXp: number;
+  startsAt: number;
+  endsAt: number;
+  current: number;
+  target: number;
+  done: boolean;
+}
+
 // ── Схемы вставки ──
 export const insertScenarioSchema = z.object({
   name: z.string().min(1),
@@ -97,6 +136,7 @@ export interface PlayerProfile extends Player {
   level: LevelInfo;
   activePoints: number; // несгоревшие баллы практики
   expiring: ExpiringPoints | null;
+  challenges: ChallengeProgress[];
   attempts: number;
   bestScore: number;
   achievements: Achievement[];
