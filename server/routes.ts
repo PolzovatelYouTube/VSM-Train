@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
 import { storage, seedScenarios } from "./storage";
 import { seedStructure, seedChallenges } from "./seed";
-import { insertScenarioSchema, insertAttemptSchema } from "@shared/schema";
+import { insertScenarioSchema, insertAttemptSchema, LEADERBOARD_SCOPES } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
 
@@ -101,8 +101,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ depots: storage.listDepots(), teams: storage.listTeams() });
   });
 
-  app.get("/api/leaderboard", (_req, res) => {
-    res.json(storage.leaderboard());
+  // ?scope=team|depot|company&id= — id бригады или депо; для company не нужен
+  const leaderboardQuery = z.object({
+    scope: z.enum(LEADERBOARD_SCOPES).default("company"),
+    id: z.coerce.number().int().optional(),
+  });
+  app.get("/api/leaderboard", (req, res) => {
+    const q = leaderboardQuery.safeParse(req.query);
+    if (!q.success) return bad(res, q.error);
+    if (q.data.scope !== "company" && q.data.id === undefined)
+      return res.status(400).json({ message: "Для рейтинга бригады или депо укажите id" });
+    res.json(storage.leaderboard(q.data.scope, q.data.id));
   });
 
   return httpServer;

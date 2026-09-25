@@ -7,14 +7,25 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
-import { useLeaderboard, useProfile, useAttempts, useScenarios } from "@/lib/api";
+import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLeaderboard, useProfile, useAttempts, useScenarios, useStructure } from "@/lib/api";
+import type { LeaderboardScope } from "@shared/schema";
 import type { LevelInfo } from "@shared/gamification";
 import { POINTS_TTL_DAYS } from "@shared/rules";
 
 export default function Leaderboard() {
   const { player } = useApp();
-  const { data: board, isLoading } = useLeaderboard();
   const { data: profile } = useProfile(player);
+  const { data: structure } = useStructure();
+  const [scope, setScope] = useState<LeaderboardScope>("team");
+  // по умолчанию показываем бригаду и депо текущего проводника; руководитель может выбрать другое подразделение
+  const myTeam = structure?.teams.find((t) => t.id === profile?.teamId);
+  const [unit, setUnit] = useState<number | undefined>();
+  const unitId = scope === "company" ? undefined : (unit ?? (scope === "team" ? myTeam?.id : myTeam?.depotId));
+  const { data: board, isLoading } = useLeaderboard(scope, unitId);
+  const units = scope === "team" ? structure?.teams : scope === "depot" ? structure?.depots : [];
   const { data: attempts } = useAttempts(player);
   const { data: scenarios } = useScenarios();
 
@@ -32,9 +43,28 @@ export default function Leaderboard() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] items-start">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base inline-flex items-center gap-2">
-              <Trophy className="size-4 text-[hsl(var(--loyalty))]" /> Таблица лидеров
-            </CardTitle>
+            <div className="flex flex-wrap items-center gap-3">
+              <CardTitle className="text-base inline-flex items-center gap-2">
+                <Trophy className="size-4 text-[hsl(var(--loyalty))]" /> Таблица лидеров
+              </CardTitle>
+              <Tabs value={scope} onValueChange={(v) => { setScope(v as LeaderboardScope); setUnit(undefined); }} className="ml-auto">
+                <TabsList className="h-8">
+                  <TabsTrigger value="team" className="text-xs" data-testid="tab-scope-team">Бригада</TabsTrigger>
+                  <TabsTrigger value="depot" className="text-xs" data-testid="tab-scope-depot">Депо</TabsTrigger>
+                  <TabsTrigger value="company" className="text-xs" data-testid="tab-scope-company">Компания</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {!!units?.length && (
+                <Select value={unitId ? String(unitId) : undefined} onValueChange={(v) => setUnit(Number(v))}>
+                  <SelectTrigger className="h-8 w-56 text-xs" data-testid="select-unit"><SelectValue placeholder="Выберите" /></SelectTrigger>
+                  <SelectContent>
+                    {units.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -42,7 +72,7 @@ export default function Leaderboard() {
                 {[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-full" />)}
               </div>
             ) : !board?.length ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">Пока нет ни одного рейса. Пройдите сценарий — и вы будете первым.</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">В этом подразделении пока никого нет.</p>
             ) : (
               <Table data-testid="table-leaderboard">
                 <TableHeader>
@@ -65,6 +95,8 @@ export default function Leaderboard() {
                         {e.name} {e.name === player && <span className="text-xs text-muted-foreground">(вы)</span>}
                         <div className="text-xs text-muted-foreground font-normal">
                           Ур. {e.level} · {e.levelTitle}
+                          {scope !== "team" && e.team && ` · ${e.team}`}
+                          {scope === "company" && e.depot && `, ${e.depot}`}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular font-semibold">{e.activePoints}</TableCell>

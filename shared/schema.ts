@@ -142,8 +142,13 @@ export interface PlayerProfile extends Player {
   achievements: Achievement[];
 }
 
+export const LEADERBOARD_SCOPES = ["team", "depot", "company"] as const;
+export type LeaderboardScope = (typeof LEADERBOARD_SCOPES)[number];
+
 export interface LeaderboardEntry {
   name: string;
+  team: string | null;
+  depot: string | null;
   xp: number;
   level: number;
   levelTitle: string;

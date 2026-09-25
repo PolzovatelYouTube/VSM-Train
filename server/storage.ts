@@ -17,6 +17,7 @@ import {
   type InsertAttempt,
   type PlayerProfile,
   type LeaderboardEntry,
+  type LeaderboardScope,
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
@@ -128,7 +129,7 @@ export interface IStorage {
   challengesFor(playerId: number): ChallengeProgress[];
   awardChallenges(playerId: number): ChallengeProgress[];
   listAttempts(playerName?: string): Attempt[];
-  leaderboard(): LeaderboardEntry[];
+  leaderboard(scope: LeaderboardScope, unitId?: number): LeaderboardEntry[];
 }
 
 export class DatabaseStorage implements IStorage {
@@ -292,15 +293,28 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  leaderboard(): LeaderboardEntry[] {
-    const ps = db.select().from(players).all();
+  /** Рейтинг внутри бригады (unitId = teamId), депо (unitId = depotId) или всей компании */
+  leaderboard(scope: LeaderboardScope, unitId?: number): LeaderboardEntry[] {
+    const teamList = this.listTeams();
+    const depotName = new Map(this.listDepots().map((d) => [d.id, d.name]));
+    const teamById = new Map(teamList.map((t) => [t.id, t]));
+    const inScope = (teamId: number | null) => {
+      if (scope === "company") return true;
+      const team = teamId === null ? undefined : teamById.get(teamId);
+      if (!team) return false;
+      return scope === "team" ? team.id === unitId : team.depotId === unitId;
+    };
+    const ps = db.select().from(players).all().filter((p) => inScope(p.teamId));
     const now = Date.now();
     return ps
       .map((p) => {
         const rows = db.select().from(attempts).where(eq(attempts.playerId, p.id)).all();
         const level = levelFor(p.xp);
+        const team = p.teamId === null ? undefined : teamById.get(p.teamId);
         return {
           name: p.name,
+          team: team?.name ?? null,
+          depot: team ? (depotName.get(team.depotId) ?? null) : null,
           xp: p.xp,
           level: level.level,
           levelTitle: level.title,

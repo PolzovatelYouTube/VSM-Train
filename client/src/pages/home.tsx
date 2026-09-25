@@ -128,7 +128,7 @@ export default function Home() {
                   <span className="font-mono text-muted-foreground w-4">{i + 1}</span>
                   <span className={e.name === player ? "font-semibold" : ""}>{e.name}</span>
                   <span className="ml-auto font-mono tabular text-xs">
-                    <span className="text-[hsl(var(--safety))]">{e.practicePoints}</span>
+                    <span className="text-[hsl(var(--safety))]">{e.activePoints}</span>
                     <span className="text-muted-foreground"> / {e.trainingPoints}</span>
                   </span>
                 </div>
