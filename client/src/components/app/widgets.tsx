@@ -1,7 +1,10 @@
 import type { Car } from "@shared/scenario";
 import { CAR_TYPE_LABEL, CAR_TYPE_SHORT } from "@shared/scenario";
 import { cn } from "@/lib/utils";
-import { Heart, ShieldCheck, Timer } from "lucide-react";
+import { Heart, ShieldCheck, Timer, Flame } from "lucide-react";
+import type { ReactNode } from "react";
+import { Progress } from "@/components/ui/progress";
+import type { LevelInfo, ExpiringPoints } from "@shared/gamification";
 
 /** Схема состава: переключение между вагонами */
 export function TrainStrip({
@@ -115,3 +118,39 @@ export const CATEGORY_COLOR: Record<string, string> = {
   technical: "bg-[hsl(var(--loyalty))]/15 text-[hsl(var(--loyalty))]",
   request: "bg-primary/15 text-primary",
 };
+
+/** Уровень и прогресс опыта до следующего */
+export function LevelBar({ level }: { level: LevelInfo }) {
+  return (
+    <div data-testid="level-bar">
+      <div className="flex items-baseline justify-between text-sm mb-1">
+        <span className="font-semibold">
+          Уровень {level.level} · {level.title}
+        </span>
+        <span className="font-mono text-xs tabular text-muted-foreground">
+          {level.nextLevelXp === null ? `${level.xp} XP · максимум` : `${level.xp} / ${level.nextLevelXp} XP`}
+        </span>
+      </div>
+      <Progress value={level.progress * 100} className="h-1.5" />
+    </div>
+  );
+}
+
+/** Предупреждение о сгорающих баллах */
+export function ExpiringNote({ expiring }: { expiring: ExpiringPoints }) {
+  return (
+    <p className="flex items-center gap-2 rounded-md border border-[hsl(var(--loyalty))]/40 bg-[hsl(var(--loyalty))]/5 p-2.5 text-sm" data-testid="text-expiring">
+      <Flame className="size-4 shrink-0 text-[hsl(var(--loyalty))]" />
+      Через {expiring.inDays} дн. сгорит {expiring.points} баллов — пройдите проверочный рейс, чтобы удержать место.
+    </p>
+  );
+}
+
+export function Stat({ icon, label, value }: { icon?: ReactNode; label: string; value: number | string }) {
+  return (
+    <div className="rounded-md bg-muted/60 p-2.5">
+      <div className="text-xs text-muted-foreground inline-flex items-center gap-1">{icon}{label}</div>
+      <div className="font-mono text-xl font-bold tabular leading-tight">{value}</div>
+    </div>
+  );
+}

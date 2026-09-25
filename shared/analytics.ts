@@ -4,7 +4,14 @@
  */
 import { type ScenarioData, type DialogueOption, type EventCategory, type RoleStep } from "./scenario";
 import { findEvent, findNode, ROLE_VIOLATION_TEXT, type LogEntry } from "./engine";
-import { TIMEOUT_PENALTY } from "./rules";
+import {
+  TIMEOUT_PENALTY,
+  SKILL_WINDOW,
+  SKILL_THRESHOLDS,
+  INSIGHT_MIN_DECISIONS,
+  INSIGHT_STRONG,
+  INSIGHT_WEAK,
+} from "./rules";
 
 // ───────────────────────────── Разбор рейса ─────────────────────────────
 
@@ -68,3 +75,125 @@ export function buildDebrief(data: ScenarioData, log: LogEntry[]): DebriefItem[]
     };
   });
 }
+
+// ───────────────────────────── Навыки и выводы ─────────────────────────────
+
+export type SkillKey = keyof typeof SKILL_THRESHOLDS;
+export const SKILL_KEYS = Object.keys(SKILL_THRESHOLDS) as SkillKey[];
+
+export const SKILL_LABEL: Record<SkillKey, string> = {
+  communication: "Коммуникация",
+  safety: "Безопасность",
+  speed: "Скорость реакции",
+  protocol: "Соблюдение алгоритмов",
+  roleModel: "Ролевая модель общения",
+};
+
+/** Попытка для аналитики: компетенции и лог уже распарсены, сортировка — от новых к старым */
+export interface AnalyticsRow {
+  competencies: Partial<Record<SkillKey, number>>;
+  log: LogEntry[];
+}
+
+export interface Skill {
+  key: SkillKey;
+  label: string;
+  value: number | null; // среднее по окну; null — нет данных
+  status: "mastered" | "weak" | "none";
+  trend: number | null; // изменение относительно предыдущего окна
+}
+
+const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+
+/** Навыки по последним SKILL_WINDOW попыткам: среднее, статус по порогу, тренд к предыдущему окну */
+export function skillProfile(rows: AnalyticsRow[], window = SKILL_WINDOW): Skill[] {
+  const recent = rows.slice(0, window);
+  const prev = rows.slice(window, window * 2);
+  return SKILL_KEYS.map((key) => {
+    const value = avg(recent.flatMap((r) => (r.competencies[key] === undefined ? [] : [r.competencies[key]!])));
+    const before = avg(prev.flatMap((r) => (r.competencies[key] === undefined ? [] : [r.competencies[key]!])));
+    return {
+      key,
+      label: SKILL_LABEL[key],
+      value,
+      status: value === null ? "none" : value >= SKILL_THRESHOLDS[key] ? "mastered" : "weak",
+      trend: value !== null && before !== null ? value - before : null,
+    };
+  });
+}
+
+const CATEGORY_IN: Record<EventCategory, string> = {
+  conflict: "в конфликтах",
+  medical: "в медицинских ситуациях",
+  technical: "в технических ситуациях",
+  request: "при обращениях пассажиров",
+};
+
+const CATEGORY_WHAT: Record<EventCategory, string> = {
+  conflict: "конфликты",
+  medical: "медицинские ситуации",
+  technical: "технические ситуации",
+  request: "обращения пассажиров",
+};
+
+interface CategoryStat {
+  category: EventCategory;
+  decisions: number;
+  accuracy: number; // % верных
+  skippedAcknowledge: number;
+  timeouts: number;
+}
+
+export function categoryStats(log: LogEntry[]): CategoryStat[] {
+  const cats = Array.from(new Set(log.map((l) => l.category)));
+  return cats.map((category) => {
+    const rows = log.filter((l) => l.category === category);
+    return {
+      category,
+      decisions: rows.length,
+      accuracy: Math.round((rows.filter((l) => l.correct).length / rows.length) * 100),
+      skippedAcknowledge: rows.filter((l) => l.violation === "skipped_acknowledge").length,
+      timeouts: rows.filter((l) => l.optionId === null).length,
+    };
+  });
+}
+
+/**
+ * 2–4 вывода по шаблонам (без LLM): сильная категория, слабая категория,
+ * типичное нарушение ролевой модели, пропуски по таймеру, проседающие навыки.
+ */
+export function buildInsights(rows: AnalyticsRow[], window = SKILL_WINDOW): string[] {
+  const recent = rows.slice(0, window);
+  if (!recent.length) return ["Пока нет данных: пройдите рейс, и здесь появятся выводы о ваших сильных и слабых сторонах."];
+  const log = recent.flatMap((r) => r.log);
+  const stats = categoryStats(log).filter((c) => c.decisions >= INSIGHT_MIN_DECISIONS);
+  const out: string[] = [];
+
+  const best = [...stats].sort((a, b) => b.accuracy - a.accuracy)[0];
+  const strong = best && best.accuracy >= INSIGHT_STRONG ? best : undefined;
+  const skip = [...stats].sort((a, b) => b.skippedAcknowledge - a.skippedAcknowledge)[0];
+  const weak = [...stats].sort((a, b) => a.accuracy - b.accuracy)[0];
+
+  if (strong) {
+    let s = `Вы уверенно действуете ${CATEGORY_IN[strong.category]} (${strong.accuracy}% верных решений)`;
+    if (skip && skip.skippedAcknowledge > 0 && skip.category !== strong.category)
+      s += `, но ${CATEGORY_IN[skip.category]} часто пропускаете шаг «Признать ситуацию»`;
+    out.push(s + ".");
+  } else if (skip && skip.skippedAcknowledge > 0) {
+    out.push(`${capitalize(CATEGORY_IN[skip.category])} вы часто сразу переходите к правилу, не признав ситуацию, — это снижает лояльность.`);
+  }
+  if (weak && weak.accuracy < INSIGHT_WEAK && weak.category !== strong?.category)
+    out.push(`Слабое место — ${CATEGORY_WHAT[weak.category]}: верных решений только ${weak.accuracy}%. Пройдите такие сценарии в режиме тренировки.`);
+
+  const timeouts = log.filter((l) => l.optionId === null).length;
+  if (timeouts >= 2) out.push(`За последние рейсы ${timeouts} решения пропущены по таймеру: в критической ситуации лучше действовать, чем ждать.`);
+
+  const weakSkills = skillProfile(rows, window).filter((s) => s.status === "weak");
+  if (weakSkills.length)
+    out.push(`Проседает: ${weakSkills.map((s) => `${s.label.toLowerCase()} (${s.value})`).join(", ")}.`);
+  else if (out.length < 2) out.push("Все навыки выше порога — попробуйте сценарий сложнее или проверочный рейс.");
+
+  return out.slice(0, 4);
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

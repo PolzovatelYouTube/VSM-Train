@@ -23,6 +23,7 @@ import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
 import { evaluateAchievements } from "@shared/achievements";
+import { skillProfile, buildInsights, type AnalyticsRow } from "@shared/analytics";
 import {
   xpForAttempt,
   levelFor,
@@ -281,12 +282,15 @@ export class DatabaseStorage implements IStorage {
     const rows = this.listAttempts(name);
     const bestScore = rows.reduce((m, r) => Math.max(m, r.score), 0);
     const now = Date.now();
+    const analytics: AnalyticsRow[] = rows.map((r) => ({ competencies: JSON.parse(r.competencies), log: JSON.parse(r.log) }));
     return {
       ...p,
       level: levelFor(p.xp),
       activePoints: activePoints(rows, now),
       expiring: expiringPoints(rows, now),
       challenges: this.challengesFor(p.id),
+      skills: skillProfile(analytics),
+      insights: buildInsights(analytics),
       attempts: rows.length,
       bestScore,
       achievements: this.achievementsFor(p.id, rows),

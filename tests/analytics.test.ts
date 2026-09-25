@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createSim, openNode, chooseOption, findNode, timeoutDialogue } from "../shared/engine";
-import { buildDebrief, describeEffects, referenceOption } from "../shared/analytics";
+import { createSim, openNode, chooseOption, findNode, timeoutDialogue, type LogEntry } from "../shared/engine";
+import { buildDebrief, describeEffects, referenceOption, skillProfile, buildInsights, type AnalyticsRow } from "../shared/analytics";
+import { SKILL_THRESHOLDS } from "../shared/rules";
 import { onboardScenario } from "../shared/scenarios/onboard";
 
 const data = onboardScenario();
@@ -47,5 +48,56 @@ describe("разбор рейса", () => {
     expect(describeEffects({ loyalty: 0, safety: 0 })).toBe("шкалы не изменились");
     // m3: эталон — вариант без условия показа, а не «НП уже в курсе» (виден только с флагом)
     expect(referenceOption(findNode(data, "ev_medicine", "m3")!.options)?.id).toBe("m3a");
+  });
+});
+
+describe("навыки и выводы", () => {
+  const entry = (category: LogEntry["category"], correct: boolean, extra: Partial<LogEntry> = {}): LogEntry => ({
+    t: 0,
+    eventId: "e",
+    category,
+    nodeId: "n",
+    optionId: "o",
+    reactionMs: 1000,
+    correct,
+    effects: { loyalty: 0, safety: 0 },
+    ...extra,
+  });
+  const row = (competencies: AnalyticsRow["competencies"], log: LogEntry[] = []): AnalyticsRow => ({ competencies, log });
+
+  it("среднее по окну, статус по порогу из rules.ts, тренд к предыдущему окну", () => {
+    const rows = [row({ safety: 90 }), row({ safety: 80 }), row({ safety: 40 }), row({ safety: 50 })];
+    const safety = skillProfile(rows, 2).find((s) => s.key === "safety")!;
+    expect(safety.value).toBe(85);
+    expect(safety.status).toBe(85 >= SKILL_THRESHOLDS.safety ? "mastered" : "weak");
+    expect(safety.trend).toBe(85 - 45);
+    expect(skillProfile([], 2).every((s) => s.status === "none")).toBe(true);
+  });
+
+  it("вывод: уверенно в медицине, но в конфликтах пропускает «Признать ситуацию»", () => {
+    const log = [
+      entry("medical", true),
+      entry("medical", true),
+      entry("conflict", false, { step: "rule", violation: "skipped_acknowledge" }),
+      entry("conflict", true),
+    ];
+    const [first] = buildInsights([row({ roleModel: 50 }, log)]);
+    expect(first).toBe(
+      "Вы уверенно действуете в медицинских ситуациях (100% верных решений), но в конфликтах часто пропускаете шаг «Признать ситуацию».",
+    );
+  });
+
+  it("слабая категория, пропуски по таймеру и проседающие навыки", () => {
+    const log = [entry("technical", false), entry("technical", false, { optionId: null }), entry("technical", true, { optionId: null })];
+    const text = buildInsights([row({ speed: 10 }, log)]).join(" ");
+    expect(text).toContain("Слабое место — технические ситуации");
+    expect(text).toContain("2 решения пропущены по таймеру");
+    expect(text).toContain("скорость реакции (10)");
+  });
+
+  it("нет попыток — одна подсказка, выводов не больше 4", () => {
+    expect(buildInsights([])).toHaveLength(1);
+    const log = [entry("medical", true), entry("medical", true), entry("conflict", false), entry("conflict", false, { optionId: null }), entry("conflict", false, { optionId: null })];
+    expect(buildInsights([row({ speed: 0, safety: 0, protocol: 0 }, log)]).length).toBeLessThanOrEqual(4);
   });
 });

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 const nav = [
   { href: "/", label: "Сценарии", icon: LayoutGrid },
   { href: "/leaderboard", label: "Рейтинг", icon: Trophy },
+  { href: "/profile", label: "Профиль", icon: UserRound },
 ];
 
 export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {

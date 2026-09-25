@@ -7,6 +7,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { scenarioDataSchema, EVENT_CATEGORIES } from "./scenario";
 import type { LevelInfo, ExpiringPoints } from "./gamification";
+import type { Skill } from "./analytics";
 
 export const scenarios = sqliteTable("scenarios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -137,6 +138,8 @@ export interface PlayerProfile extends Player {
   activePoints: number; // несгоревшие баллы практики
   expiring: ExpiringPoints | null;
   challenges: ChallengeProgress[];
+  skills: Skill[];
+  insights: string[];
   attempts: number;
   bestScore: number;
   achievements: Achievement[];

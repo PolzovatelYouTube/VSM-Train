@@ -1,18 +1,18 @@
-import { Trophy, Medal, Lock, GraduationCap, ClipboardCheck, Flame, Target } from "lucide-react";
+import { Link } from "wouter";
+import { Trophy, Medal, GraduationCap, ClipboardCheck, UserRound } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LevelBar, ExpiringNote, Stat } from "@/components/app/widgets";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLeaderboard, useProfile, useAttempts, useScenarios, useStructure } from "@/lib/api";
+import { useLeaderboard, useProfile, useStructure } from "@/lib/api";
 import type { LeaderboardScope } from "@shared/schema";
-import type { LevelInfo } from "@shared/gamification";
 import { POINTS_TTL_DAYS } from "@shared/rules";
 
 export default function Leaderboard() {
@@ -26,10 +26,6 @@ export default function Leaderboard() {
   const unitId = scope === "company" ? undefined : (unit ?? (scope === "team" ? myTeam?.id : myTeam?.depotId));
   const { data: board, isLoading } = useLeaderboard(scope, unitId);
   const units = scope === "team" ? structure?.teams : scope === "depot" ? structure?.depots : [];
-  const { data: attempts } = useAttempts(player);
-  const { data: scenarios } = useScenarios();
-
-  const scenarioName = (id: number) => scenarios?.find((s) => s.id === id)?.name ?? `Сценарий #${id}`;
 
   return (
     <Shell>
@@ -111,120 +107,25 @@ export default function Leaderboard() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card data-testid="card-profile">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Профиль: {player}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {profile && <LevelBar level={profile.level} />}
-              {profile?.expiring && (
-                <p className="flex items-center gap-2 rounded-md border border-[hsl(var(--loyalty))]/40 bg-[hsl(var(--loyalty))]/5 p-2.5 text-sm" data-testid="text-expiring">
-                  <Flame className="size-4 shrink-0 text-[hsl(var(--loyalty))]" />
-                  Через {profile.expiring.inDays} дн. сгорит {profile.expiring.points} баллов — пройдите проверочный рейс, чтобы удержать место.
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <Stat icon={<ClipboardCheck className="size-4" />} label="Баллы практики" value={profile?.activePoints ?? 0} />
-                <Stat icon={<GraduationCap className="size-4" />} label="Обучение" value={profile?.trainingPoints ?? 0} />
-                <Stat label="Рейсов" value={profile?.attempts ?? 0} />
-                <Stat label="Лучший балл" value={profile?.bestScore ?? 0} />
-              </div>
-              <div>
-                <div className="text-sm font-semibold mb-2">Достижения</div>
-                <ul className="space-y-1.5">
-                  {(profile?.achievements ?? []).map((a) => (
-                    <li key={a.id} className={cn("flex items-start gap-2.5 rounded-md border p-2.5", a.unlocked ? "border-[hsl(var(--safety))]/40 bg-[hsl(var(--safety))]/5" : "opacity-60")} data-testid={`achievement-${a.id}`}>
-                      <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full", a.unlocked ? "bg-[hsl(var(--safety))] text-white" : "bg-muted")}>
-                        {a.unlocked ? <Trophy className="size-3.5" /> : <Lock className="size-3" />}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium leading-tight">{a.title}</div>
-                        <div className="text-xs text-muted-foreground">{a.description}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
-          {!!profile?.challenges.length && (
-            <Card data-testid="card-challenges">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base inline-flex items-center gap-2">
-                  <Target className="size-4 text-[hsl(var(--safety))]" /> Челленджи
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {profile.challenges.map((c) => (
-                  <div key={c.id} data-testid={`challenge-${c.id}`}>
-                    <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span className="font-medium">{c.title}</span>
-                      <span className="shrink-0 font-mono text-xs tabular text-muted-foreground">+{c.rewardXp} XP</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {c.description} · до {new Date(c.endsAt).toLocaleDateString("ru-RU")}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Progress value={(c.current / c.target) * 100} className="h-1.5 flex-1" />
-                      <span className="font-mono text-xs tabular">{c.done ? "готово" : `${c.current}/${c.target}`}</span>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Последние рейсы</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!attempts?.length ? (
-                <p className="text-sm text-muted-foreground">История пуста.</p>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {attempts.slice(0, 8).map((a) => (
-                    <li key={a.id} className="flex items-center gap-2" data-testid={`row-attempt-${a.id}`}>
-                      <Badge variant={a.mode === "check" ? "default" : "secondary"} className="text-[10px] px-1.5">
-                        {a.mode === "check" ? "Проверка" : "Тренировка"}
-                      </Badge>
-                      <span className="truncate">{scenarioName(a.scenarioId)}</span>
-                      <span className="ml-auto font-mono tabular font-semibold">{a.score}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card data-testid="card-profile">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{player}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {profile && <LevelBar level={profile.level} />}
+            {profile?.expiring && <ExpiringNote expiring={profile.expiring} />}
+            <div className="grid grid-cols-2 gap-3">
+              <Stat icon={<ClipboardCheck className="size-4" />} label="Баллы практики" value={profile?.activePoints ?? 0} />
+              <Stat icon={<GraduationCap className="size-4" />} label="Обучение" value={profile?.trainingPoints ?? 0} />
+            </div>
+            <Button size="sm" variant="secondary" className="w-full" asChild>
+              <Link href="/profile" data-testid="link-profile">
+                <UserRound className="size-4 mr-1" /> Профиль, навыки и достижения
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </Shell>
-  );
-}
-
-function Stat({ icon, label, value }: { icon?: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="rounded-md bg-muted/60 p-2.5">
-      <div className="text-xs text-muted-foreground inline-flex items-center gap-1">{icon}{label}</div>
-      <div className="font-mono text-xl font-bold tabular leading-tight">{value}</div>
-    </div>
-  );
-}
-
-export function LevelBar({ level }: { level: LevelInfo }) {
-  return (
-    <div data-testid="level-bar">
-      <div className="flex items-baseline justify-between text-sm mb-1">
-        <span className="font-semibold">
-          Уровень {level.level} · {level.title}
-        </span>
-        <span className="font-mono text-xs tabular text-muted-foreground">
-          {level.nextLevelXp === null ? `${level.xp} XP · максимум` : `${level.xp} / ${level.nextLevelXp} XP`}
-        </span>
-      </div>
-      <Progress value={level.progress * 100} className="h-1.5" />
-    </div>
   );
 }
