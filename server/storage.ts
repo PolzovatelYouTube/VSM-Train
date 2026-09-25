@@ -18,12 +18,14 @@ import {
   type PlayerProfile,
   type LeaderboardEntry,
   type LeaderboardScope,
+  type TeamAnalytics,
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
 import { evaluateAchievements } from "@shared/achievements";
-import { skillProfile, buildInsights, type AnalyticsRow } from "@shared/analytics";
+import { skillProfile, buildInsights, teamMatrix, topMistakes, type AnalyticsRow } from "@shared/analytics";
+import { scenarioDataSchema } from "@shared/scenario";
 import {
   xpForAttempt,
   levelFor,
@@ -131,6 +133,7 @@ export interface IStorage {
   awardChallenges(playerId: number): ChallengeProgress[];
   listAttempts(playerName?: string): Attempt[];
   leaderboard(scope: LeaderboardScope, unitId?: number): LeaderboardEntry[];
+  teamAnalytics(teamId: number): TeamAnalytics | undefined;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -330,6 +333,38 @@ export class DatabaseStorage implements IStorage {
         };
       })
       .sort((a, b) => b.activePoints - a.activePoints || b.xp - a.xp);
+  }
+
+  /** Страница руководителя: матрица «проводники × навыки», готовность и частые ошибки бригады */
+  teamAnalytics(teamId: number): TeamAnalytics | undefined {
+    const team = db.select().from(teams).where(eq(teams.id, teamId)).get();
+    if (!team) return undefined;
+    const depot = db.select().from(depots).where(eq(depots.id, team.depotId)).get() ?? null;
+    const scenarioData = new Map(
+      this.listScenarios().flatMap((s) => {
+        const parsed = scenarioDataSchema.safeParse(JSON.parse(s.data));
+        return parsed.success ? [[s.id, parsed.data] as const] : [];
+      }),
+    );
+    const members = db.select().from(players).where(eq(players.teamId, teamId)).all();
+    const perMember = members.map((p) => ({
+      name: p.name,
+      rows: db.select().from(attempts).where(eq(attempts.playerId, p.id)).orderBy(desc(attempts.createdAt)).all(),
+    }));
+    const toAnalytics = (r: Attempt): AnalyticsRow => ({ competencies: JSON.parse(r.competencies), log: JSON.parse(r.log) });
+    return {
+      team,
+      depot,
+      members: teamMatrix(perMember.map((m) => ({ name: m.name, rows: m.rows.map(toAnalytics) }))),
+      mistakes: topMistakes(
+        perMember.flatMap((m) =>
+          m.rows.flatMap((r) => {
+            const data = scenarioData.get(r.scenarioId);
+            return data ? [{ scenarioId: r.scenarioId, data, log: JSON.parse(r.log) }] : [];
+          }),
+        ),
+      ),
+    };
   }
 }
 

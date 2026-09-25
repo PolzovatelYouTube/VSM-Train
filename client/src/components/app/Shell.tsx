@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Moon, Sun, LayoutGrid, Trophy, UserRound } from "lucide-react";
+import { Moon, Sun, LayoutGrid, Trophy, UserRound, UsersRound } from "lucide-react";
 import { Logo } from "./Logo";
 import { useApp } from "@/lib/player";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const nav = [
   { href: "/", label: "Сценарии", icon: LayoutGrid },
   { href: "/leaderboard", label: "Рейтинг", icon: Trophy },
   { href: "/profile", label: "Профиль", icon: UserRound },
+  { href: "/team", label: "Бригада", icon: UsersRound },
 ];
 
 export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {

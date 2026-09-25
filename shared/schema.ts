@@ -7,7 +7,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { scenarioDataSchema, EVENT_CATEGORIES } from "./scenario";
 import type { LevelInfo, ExpiringPoints } from "./gamification";
-import type { Skill } from "./analytics";
+import type { Skill, MemberSkills, TeamMistake } from "./analytics";
 
 export const scenarios = sqliteTable("scenarios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -160,4 +160,11 @@ export interface LeaderboardEntry {
   practicePoints: number;
   attempts: number;
   bestScore: number;
+}
+
+export interface TeamAnalytics {
+  team: Team;
+  depot: Depot | null;
+  members: MemberSkills[];
+  mistakes: TeamMistake[];
 }

@@ -2,7 +2,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "./queryClient";
 import type { ScenarioData } from "@shared/scenario";
-import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team } from "@shared/schema";
+import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics } from "@shared/schema";
 
 export interface ScenarioDto {
   id: number;
@@ -22,6 +22,8 @@ export const useLeaderboard = (scope: LeaderboardScope = "company", id?: number)
     queryFn: async () => (await apiRequest("GET", `/api/leaderboard?scope=${scope}${id !== undefined ? `&id=${id}` : ""}`)).json(),
     enabled: scope === "company" || id !== undefined,
   });
+export const useTeamAnalytics = (teamId?: number) =>
+  useQuery<TeamAnalytics>({ queryKey: ["/api/teams", teamId ?? "", "analytics"], enabled: teamId !== undefined });
 export const useStructure = () => useQuery<{ depots: Depot[]; teams: Team[] }>({ queryKey: ["/api/structure"] });
 export const useProfile = (name: string) =>
   useQuery<PlayerProfile>({ queryKey: ["/api/players", encodeURIComponent(name)], enabled: !!name });

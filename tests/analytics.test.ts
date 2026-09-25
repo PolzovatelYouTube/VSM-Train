@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createSim, openNode, chooseOption, findNode, timeoutDialogue, type LogEntry } from "../shared/engine";
-import { buildDebrief, describeEffects, referenceOption, skillProfile, buildInsights, type AnalyticsRow } from "../shared/analytics";
-import { SKILL_THRESHOLDS } from "../shared/rules";
+import { buildDebrief, describeEffects, referenceOption, skillProfile, buildInsights, teamMatrix, topMistakes, isReady, type AnalyticsRow } from "../shared/analytics";
+import { SKILL_THRESHOLDS, CRITICAL_SKILLS } from "../shared/rules";
 import { onboardScenario } from "../shared/scenarios/onboard";
 
 const data = onboardScenario();
@@ -99,5 +99,33 @@ describe("навыки и выводы", () => {
     expect(buildInsights([])).toHaveLength(1);
     const log = [entry("medical", true), entry("medical", true), entry("conflict", false), entry("conflict", false, { optionId: null }), entry("conflict", false, { optionId: null })];
     expect(buildInsights([row({ speed: 0, safety: 0, protocol: 0 }, log)]).length).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("страница руководителя", () => {
+  it("готовность — все критичные навыки выше порога", () => {
+    const high = Object.fromEntries(CRITICAL_SKILLS.map((k) => [k, SKILL_THRESHOLDS[k]]));
+    const [ready, notReady] = teamMatrix([
+      { name: "А", rows: [{ competencies: high, log: [] }] },
+      { name: "Б", rows: [{ competencies: { ...high, [CRITICAL_SKILLS[0]]: 0 }, log: [] }] },
+    ]);
+    expect(ready.ready).toBe(true);
+    expect(notReady.ready).toBe(false);
+    expect(isReady(skillProfile([]))).toBe(false);
+  });
+
+  it("частые ошибки агрегируются по узлу и варианту, таймауты отдельно", () => {
+    const run = (optionId: string | null) => {
+      const s = createSim(data);
+      openNode(s, data, "ev_medicine", "m1");
+      if (optionId) pick(s, optionId);
+      else timeoutDialogue(s, data);
+      return { scenarioId: 1, data, log: s.log };
+    };
+    const top = topMistakes([run("m1b"), run("m1b"), run(null), run("m1a")]);
+    expect(top).toHaveLength(2);
+    expect(top[0]).toMatchObject({ count: 2, category: "medical" });
+    expect(top[0].better).toContain("Сочувствую");
+    expect(top[1].text).toMatch(/^Не успели ответить/);
   });
 });

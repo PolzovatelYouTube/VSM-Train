@@ -101,6 +101,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ depots: storage.listDepots(), teams: storage.listTeams() });
   });
 
+  app.get("/api/teams/:id/analytics", (req, res) => {
+    const data = storage.teamAnalytics(Number(req.params.id));
+    if (!data) return res.status(404).json({ message: "Бригада не найдена" });
+    res.json(data);
+  });
+
   // ?scope=team|depot|company&id= — id бригады или депо; для company не нужен
   const leaderboardQuery = z.object({
     scope: z.enum(LEADERBOARD_SCOPES).default("company"),

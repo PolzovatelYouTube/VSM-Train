@@ -11,6 +11,7 @@ import Editor from "@/pages/editor";
 import Play from "@/pages/play";
 import Leaderboard from "@/pages/leaderboard";
 import Profile from "@/pages/profile";
+import TeamPage from "@/pages/team";
 
 function AppRouter() {
   return (
@@ -20,6 +21,7 @@ function AppRouter() {
       <Route path="/play/:id/:mode" component={Play} />
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/profile" component={Profile} />
+      <Route path="/team" component={TeamPage} />
       <Route component={NotFound} />
     </Switch>
   );

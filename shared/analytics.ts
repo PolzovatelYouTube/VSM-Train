@@ -11,6 +11,7 @@ import {
   INSIGHT_MIN_DECISIONS,
   INSIGHT_STRONG,
   INSIGHT_WEAK,
+  CRITICAL_SKILLS,
 } from "./rules";
 
 // ───────────────────────────── Разбор рейса ─────────────────────────────
@@ -197,3 +198,59 @@ export function buildInsights(rows: AnalyticsRow[], window = SKILL_WINDOW): stri
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// ───────────────────────────── Страница руководителя ─────────────────────────────
+
+export interface MemberSkills {
+  name: string;
+  attempts: number;
+  skills: Skill[];
+  ready: boolean; // все критичные навыки освоены
+}
+
+/** Готов к самостоятельной работе: все CRITICAL_SKILLS не ниже порога */
+export const isReady = (skills: Skill[]) =>
+  CRITICAL_SKILLS.every((k) => skills.find((s) => s.key === k)?.status === "mastered");
+
+export function teamMatrix(members: { name: string; rows: AnalyticsRow[] }[]): MemberSkills[] {
+  return members.map((m) => {
+    const skills = skillProfile(m.rows);
+    return { name: m.name, attempts: m.rows.length, skills, ready: isReady(skills) };
+  });
+}
+
+export interface TeamMistake {
+  eventTitle: string;
+  category: EventCategory;
+  text: string; // неверный вариант или «не успели ответить: …»
+  count: number;
+  better: string | null; // эталонный вариант узла
+}
+
+/** Самые частые ошибки бригады: неверные решения и таймауты, сгруппированные по узлу и варианту */
+export function topMistakes(entries: { scenarioId: number; data: ScenarioData; log: LogEntry[] }[], limit = 3): TeamMistake[] {
+  const byKey = new Map<string, TeamMistake>();
+  for (const { scenarioId, data, log } of entries) {
+    for (const l of log) {
+      if (l.correct) continue;
+      const key = `${scenarioId}/${l.eventId}/${l.nodeId}/${l.optionId ?? "timeout"}`;
+      const found = byKey.get(key);
+      if (found) {
+        found.count++;
+        continue;
+      }
+      const node = findNode(data, l.eventId, l.nodeId);
+      const option = node?.options.find((o) => o.id === l.optionId);
+      byKey.set(key, {
+        eventTitle: findEvent(data, l.eventId)?.title ?? l.eventId,
+        category: l.category,
+        text: l.optionId === null ? `Не успели ответить: «${node?.text ?? l.nodeId}»` : (option?.text ?? l.optionId),
+        count: 1,
+        better: (node && referenceOption(node.options)?.text) ?? null,
+      });
+    }
+  }
+  return Array.from(byKey.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
