@@ -12,6 +12,7 @@ import {
   type LeaderboardEntry,
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
+import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
@@ -226,15 +227,27 @@ function computeAchievements(rows: Attempt[]): Achievement[] {
 
 export const storage = new DatabaseStorage();
 
-/** Первый запуск: если сценариев нет — добавляем демо */
-export function seedIfEmpty() {
-  if (storage.listScenarios().length === 0) {
-    storage.createScenario({
-      name: "Демо: рейс Москва — Санкт-Петербург",
-      description:
-        "Три вагона, шесть акторов, три события: спор за место, медицинский инцидент, просьба VIP-пассажира.",
-      difficulty: 1,
-      data: demoScenario(),
-    });
+const SEED_SCENARIOS = [
+  {
+    name: "Демо: рейс Москва — Санкт-Петербург",
+    description:
+      "Три вагона, шесть акторов, три события: спор за место, медицинский инцидент, просьба VIP-пассажира.",
+    difficulty: 1,
+    data: demoScenario,
+  },
+  {
+    name: ONBOARD_SCENARIO_NAME,
+    description:
+      "Ситуации №4, №6 и №28 из методички «Ситуации на борту»: ролевая модель, ветки на таймаут, жалоба при лояльности < 30, вызов ПТБ при безопасности < 40.",
+    difficulty: 2,
+    data: onboardScenario,
+  },
+];
+
+/** При запуске добавляем встроенные сценарии, которых ещё нет в базе (по названию) */
+export function seedScenarios() {
+  const names = new Set(storage.listScenarios().map((s) => s.name));
+  for (const s of SEED_SCENARIOS) {
+    if (!names.has(s.name)) storage.createScenario({ ...s, data: s.data() });
   }
 }

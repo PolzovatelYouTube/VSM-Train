@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
-import { storage, seedIfEmpty } from "./storage";
+import { storage, seedScenarios } from "./storage";
 import { insertScenarioSchema, insertAttemptSchema } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
@@ -19,7 +19,7 @@ function bad(res: Response, err: unknown) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  seedIfEmpty();
+  seedScenarios();
 
   // ── Сценарии ──
   app.get("/api/scenarios", (_req, res) => {
