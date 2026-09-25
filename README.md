@@ -8,11 +8,12 @@
 npm install
 npm run dev        # http://localhost:5000, горячая перезагрузка клиента
 npm run check      # проверка типов
+npm test           # тесты движка (vitest): условия, таймауты, ролевая модель, терпение, сценарий «Ситуации на борту»
 npm run build      # сборка в dist/
 npm start          # продакшен-сервер из dist/
 ```
 
-База данных — SQLite-файл `data.db` в корне (создаётся автоматически, при первом запуске сидируется демо-сценарием). Ничего ставить отдельно не нужно.
+База данных — SQLite-файл `data.db` в корне (создаётся автоматически; при запуске добавляются встроенные сценарии, если их ещё нет: демо и «Ситуации на борту» из `shared/scenarios/onboard.ts`). Ничего ставить отдельно не нужно.
 
 ## Что уже есть
 
@@ -39,12 +40,24 @@ npm start          # продакшен-сервер из dist/
   }],
   events: [{
     id, title, category, actorId,
-    trigger: { type:"manual" } | { type:"time", atSec } | { type:"actor" },
-    startNode, nodes: [{ id, speaker, text, timerSec, options: [{ id, text, next, effects:{loyalty,safety}, correct, hint }] }]
+    trigger: { type:"manual" } | { type:"time", atSec } | { type:"actor" } | { type:"condition", if: Condition },
+    startNode, nodes: [{
+      id, speaker, text, timerSec,
+      onTimeout?: { next, effects, set?, text? },          // своя ветка, если не успел; иначе штраф TIMEOUT_PENALTY
+      options: [{ id, text, next, effects:{loyalty,safety}, correct, hint,
+        step?: "acknowledge"|"rule"|"solution"|"assure", // шаг ролевой модели
+        set?: { flag: true|false|число },                 // выставляет флаги
+        if?: Condition,                                   // вариант виден, только если условие истинно
+        nextIf?: [{ if: Condition, next }] }]             // первый сработавший переход, иначе next
+    }]
   }],
   durationSec, initial: { loyalty, safety }
 }
 ```
+
+`Condition` — `{ flag, eq? }` | `{ loyalty: { lt?, gte? } }` | `{ safety: { lt?, gte? } }` | `{ all: [...] }` | `{ any: [...] }`. Все новые поля необязательны: старые сценарии работают как раньше, тип вагона `second` при чтении превращается в `comfort`.
+
+Компоновки вагонов: первый класс 2+1, бизнес и комфорт 2+2, стандарт 3+2. Терпение пассажира зависит от класса (`PATIENCE_BY_CLASS` в `shared/rules.ts`, ориентир — СТО РЖД 03.011 п. 10.5: 5 / 10 / 15 / 20 мин): в дорогих классах таймер короче, а потеря лояльности больше.
 
 Цель шага `goto`: `ownSeat` (своё место по билету), `seat` (конкретное кресло), `cell` (координата), `zone` (туалет / бар / тамбур в указанном вагоне). Координаты: `x` — вдоль вагона, `y` — поперёк; проходимы клетки `aisle`, `seat`, `door`, `vestibule`, `toilet`, `bar`.
 
