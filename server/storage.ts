@@ -22,6 +22,7 @@ import {
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
+import { accessibilityScenario, ACCESSIBILITY_SCENARIO_NAME } from "@shared/scenarios/accessibility";
 import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
 import { evaluateAchievements } from "@shared/achievements";
 import { skillProfile, buildInsights, teamMatrix, topMistakes, type AnalyticsRow } from "@shared/analytics";
@@ -400,6 +401,13 @@ const SEED_SCENARIOS = [
       "Ситуации №4, №6 и №28 из методички «Ситуации на борту»: ролевая модель, ветки на таймаут, жалоба при лояльности < 30, вызов ПТБ при безопасности < 40.",
     difficulty: 2,
     data: onboardScenario,
+  },
+  {
+    name: ACCESSIBILITY_SCENARIO_NAME,
+    description:
+      "Пассажир в кресле-коляске, незрячая пассажирка с собакой-проводником (СТО РЖД 03.014) и №41 «Бесхозная вещь»: если вещь трогали — вопросы ПТБ.",
+    difficulty: 2,
+    data: accessibilityScenario,
   },
 ];
 
