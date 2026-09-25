@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useScenario, useSubmitAttempt } from "@/lib/api";
-import { EVENT_CATEGORY_LABEL, type ScenarioData } from "@shared/scenario";
+import { EVENT_CATEGORY_LABEL, ROLE_STEP_LABEL, type ScenarioData } from "@shared/scenario";
 import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, type SimState, type SimResult } from "@shared/engine";
 
 type Mode = "training" | "check";
@@ -263,6 +263,9 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
                     >
                       <span className="font-mono text-xs text-muted-foreground mr-2">{i + 1}</span>
                       {o.text}
+                      {isTraining && o.step && (
+                        <Badge variant="outline" className="ml-2 text-[10px] px-1.5 align-middle">{ROLE_STEP_LABEL[o.step]}</Badge>
+                      )}
                       {isTraining && o.hint && o.correct && (
                         <span className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
                           <Lightbulb className="size-3.5 shrink-0 mt-0.5 text-[hsl(var(--loyalty))]" /> {o.hint}
@@ -329,6 +332,7 @@ function ResultCard({ result, mode, sid, onRetry, saving }: { result: SimResult;
     { key: "safety", label: "Безопасность" },
     { key: "protocol", label: "Соблюдение алгоритмов" },
     { key: "speed", label: "Скорость реакции" },
+    { key: "roleModel", label: "Ролевая модель общения" },
   ];
   return (
     <Card data-testid="card-result">

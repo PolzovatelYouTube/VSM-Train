@@ -16,6 +16,9 @@ import {
   type Condition,
   type Range,
   type FlagValue,
+  type RoleStep,
+  ROLE_STEPS,
+  ROLE_STEP_LABEL,
   cellAt,
   seatCell,
   isWalkable,
@@ -30,6 +33,7 @@ import {
   FAST_REACTION_SHARE,
   DEFAULT_REACTION_LIMIT_SEC,
   RECOMMENDATION_THRESHOLDS,
+  ROLE_MODEL,
 } from "./rules";
 
 export interface Waypoint {
@@ -61,8 +65,12 @@ export interface LogEntry {
   optionId: string | null; // null = таймаут
   reactionMs: number;
   correct: boolean;
-  effects: { loyalty: number; safety: number };
+  effects: { loyalty: number; safety: number }; // фактически применённые (с учётом штрафов/бонусов)
+  step?: RoleStep; // шаг ролевой модели выбранной реплики
+  violation?: RoleViolation; // нарушение ролевой модели, если было
 }
+
+export type RoleViolation = "skipped_acknowledge" | "order";
 
 export interface ActiveDialogue {
   eventId: string;
@@ -409,9 +417,54 @@ export function resolveNext(option: DialogueOption, state: ConditionState): stri
   return branch ? branch.next : option.next;
 }
 
+// ───────────────────────────── Ролевая модель ─────────────────────────────
+
+const stepOrder = (s: RoleStep) => ROLE_STEPS.indexOf(s);
+
+/**
+ * Проверка шага ролевой модели относительно уже сделанных шагов в этом событии.
+ * «Признать» можно всегда (в том числе вернуться к нему после эскалации).
+ * «Правило» без предварительного «Признать» — skipped_acknowledge.
+ * Шаг раньше уже пройденного (например, «Правило» после «Заверить») — order.
+ */
+export function roleStepViolation(prev: RoleStep[], step: RoleStep): RoleViolation | null {
+  if (step === "acknowledge") return null;
+  if (step === "rule" && !prev.includes("acknowledge")) return "skipped_acknowledge";
+  const maxPrev = Math.max(-1, ...prev.map(stepOrder));
+  return stepOrder(step) < maxPrev ? "order" : null;
+}
+
+export const ROLE_VIOLATION_TEXT: Record<RoleViolation, string> = {
+  skipped_acknowledge: `сразу перешли к правилу, не признав ситуацию`,
+  order: `нарушен порядок: ${ROLE_STEPS.map((s) => ROLE_STEP_LABEL[s]).join(" → ")}`,
+};
+
+/** Метрика 0..100: доля реплик с шагом модели, сделанных без нарушения. Нет размеченных реплик — 100. */
+export function roleModelScore(log: LogEntry[]): number {
+  const stepped = log.filter((l) => l.step);
+  if (!stepped.length) return 100;
+  return Math.round((stepped.filter((l) => !l.violation).length / stepped.length) * 100);
+}
+
 export function chooseOption(state: SimState, data: ScenarioData, option: DialogueOption) {
   if (!state.active) return;
   const ev = findEvent(data, state.active.eventId)!;
+
+  // ролевая модель: штраф за нарушение, бонус за полную цепочку в событии
+  const eventLog = state.log.filter((l) => l.eventId === ev.id);
+  const prevSteps = eventLog.flatMap((l) => (l.step ? [l.step] : []));
+  const violation = option.step ? roleStepViolation(prevSteps, option.step) : null;
+  const fullChain =
+    option.step === "assure" &&
+    !violation &&
+    !eventLog.some((l) => l.violation) &&
+    ROLE_STEPS.every((s) => s === "assure" || prevSteps.includes(s));
+  const extra = violation ? ROLE_MODEL.violationPenalty : fullChain ? ROLE_MODEL.fullChainBonus : null;
+  const effects = {
+    loyalty: option.effects.loyalty + (extra?.loyalty ?? 0),
+    safety: option.effects.safety + (extra?.safety ?? 0),
+  };
+
   state.log.push({
     t: state.t,
     eventId: ev.id,
@@ -420,16 +473,21 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
     optionId: option.id,
     reactionMs: Date.now() - state.active.wallOpenedAt,
     correct: !!option.correct,
-    effects: option.effects,
+    effects,
+    ...(option.step && { step: option.step }),
+    ...(violation && { violation }),
   });
-  state.loyalty = clamp(state.loyalty + option.effects.loyalty);
-  state.safety = clamp(state.safety + option.effects.safety);
+  state.loyalty = clamp(state.loyalty + effects.loyalty);
+  state.safety = clamp(state.safety + effects.safety);
   if (option.set) Object.assign(state.flags, option.set);
   state.feed.push({
     t: state.t,
-    text: `${ev.title}: ${option.correct ? "верное решение" : "спорное решение"} (лояльность ${fmt(option.effects.loyalty)}, безопасность ${fmt(option.effects.safety)})`,
+    text: `${ev.title}: ${option.correct ? "верное решение" : "спорное решение"} (лояльность ${fmt(effects.loyalty)}, безопасность ${fmt(effects.safety)})`,
     kind: option.correct ? "good" : "bad",
   });
+  if (violation)
+    state.feed.push({ t: state.t, text: `Ролевая модель: ${ROLE_VIOLATION_TEXT[violation]}`, kind: "bad" });
+  if (fullChain) state.feed.push({ t: state.t, text: "Ролевая модель: полная цепочка без нарушений", kind: "good" });
   // переход считается ПОСЛЕ эффектов и флагов: так «лояльность < 30» учитывает только что сделанный выбор
   const next = resolveNext(option, state);
   if (next) {
@@ -479,7 +537,7 @@ export interface SimResult {
   accuracy: number; // доля верных решений 0..1
   avgReactionMs: number;
   timeouts: number;
-  competencies: { communication: number; safety: number; speed: number; protocol: number };
+  competencies: { communication: number; safety: number; speed: number; protocol: number; roleModel: number };
   recommendations: string[];
 }
 
@@ -508,6 +566,7 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
     safety: byCat(["medical", "technical"]),
     speed,
     protocol: Math.round(accuracy * 100),
+    roleModel: roleModelScore(log),
   };
 
   const score = clamp(
@@ -526,6 +585,10 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
     recommendations.push("Отработать алгоритм действий при медицинском инциденте (оценка → доклад → медик).");
   if (competencies.speed < RECOMMENDATION_THRESHOLDS.speed)
     recommendations.push("Тренировать скорость принятия решений: пройти сценарии в режиме с таймером.");
+  if (competencies.roleModel < RECOMMENDATION_THRESHOLDS.roleModel)
+    recommendations.push(
+      `Соблюдайте ролевую модель общения: ${ROLE_STEPS.map((s) => ROLE_STEP_LABEL[s]).join(" → ")}. Не переходите к правилу, не признав ситуацию.`,
+    );
   if (timeouts > 0) recommendations.push("Есть пропущенные решения — не оставляйте ситуацию без ответа.");
   if (!recommendations.length) recommendations.push("Отличный результат. Попробуйте более сложный сценарий.");
 

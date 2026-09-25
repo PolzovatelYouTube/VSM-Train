@@ -160,6 +160,17 @@ export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
   ]),
 );
 
+// ── Ролевая модель общения (методичка «Ситуации на борту») ──
+export const ROLE_STEPS = ["acknowledge", "rule", "solution", "assure"] as const;
+export type RoleStep = (typeof ROLE_STEPS)[number];
+
+export const ROLE_STEP_LABEL: Record<RoleStep, string> = {
+  acknowledge: "Признать ситуацию",
+  rule: "Обозначить правило",
+  solution: "Предложить решение",
+  assure: "Заверить",
+};
+
 export const dialogueOptionSchema = z.object({
   id: z.string(),
   text: z.string(),
@@ -167,6 +178,7 @@ export const dialogueOptionSchema = z.object({
   effects: z.object({ loyalty: z.number(), safety: z.number() }),
   correct: z.boolean().optional(), // эталонный вариант (для подсказок и оценки)
   hint: z.string().optional(),
+  step: z.enum(ROLE_STEPS).optional(), // какой шаг ролевой модели реализует реплика
   set: z.record(z.string(), flagValueSchema).optional(), // какие флаги выставляет выбор
   if: conditionSchema.optional(), // вариант виден, только если условие истинно
   // условные переходы: первый сработавший побеждает, иначе используется next
