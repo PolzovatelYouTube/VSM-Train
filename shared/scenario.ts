@@ -180,6 +180,15 @@ export const dialogueNodeSchema = z.object({
   text: z.string(),
   timerSec: z.number().min(0).optional(), // 0/undefined = без таймера
   options: z.array(dialogueOptionSchema),
+  // Что происходит, если проводник не успел: своя ветка вместо фиксированного штрафа
+  onTimeout: z
+    .object({
+      next: z.string().nullable(), // узел-последствие («пассажир ушёл жаловаться») или конец события
+      effects: z.object({ loyalty: z.number(), safety: z.number() }),
+      set: z.record(z.string(), flagValueSchema).optional(),
+      text: z.string().optional(), // запись в журнал рейса
+    })
+    .optional(),
 });
 export type DialogueNode = z.infer<typeof dialogueNodeSchema>;
 

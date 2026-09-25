@@ -439,9 +439,16 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
   }
 }
 
-function timeoutDialogue(state: SimState, data: ScenarioData) {
+/**
+ * Время на решение истекло. Если у узла есть onTimeout — применяем его эффекты и флаги
+ * и переходим в узел-последствие; иначе старое поведение: TIMEOUT_PENALTY и конец события.
+ */
+export function timeoutDialogue(state: SimState, data: ScenarioData) {
   if (!state.active) return;
   const ev = findEvent(data, state.active.eventId)!;
+  const node = findNode(data, ev.id, state.active.nodeId);
+  const branch = node?.onTimeout;
+  const effects = branch?.effects ?? TIMEOUT_PENALTY;
   state.log.push({
     t: state.t,
     eventId: ev.id,
@@ -450,12 +457,15 @@ function timeoutDialogue(state: SimState, data: ScenarioData) {
     optionId: null,
     reactionMs: Date.now() - state.active.wallOpenedAt,
     correct: false,
-    effects: TIMEOUT_PENALTY,
+    effects,
   });
-  state.loyalty = clamp(state.loyalty + TIMEOUT_PENALTY.loyalty);
-  state.safety = clamp(state.safety + TIMEOUT_PENALTY.safety);
-  state.feed.push({ t: state.t, text: `${ev.title}: время на решение истекло`, kind: "bad" });
-  state.active = null;
+  state.loyalty = clamp(state.loyalty + effects.loyalty);
+  state.safety = clamp(state.safety + effects.safety);
+  if (branch?.set) Object.assign(state.flags, branch.set);
+  state.feed.push({ t: state.t, text: `${ev.title}: ${branch?.text ?? "время на решение истекло"}`, kind: "bad" });
+  state.active = branch?.next
+    ? { eventId: ev.id, nodeId: branch.next, openedAt: state.t, wallOpenedAt: Date.now() }
+    : null;
 }
 
 const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
