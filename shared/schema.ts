@@ -6,7 +6,7 @@ import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { scenarioDataSchema } from "./scenario";
-import type { LevelInfo } from "./gamification";
+import type { LevelInfo, ExpiringPoints } from "./gamification";
 
 export const scenarios = sqliteTable("scenarios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -51,6 +51,7 @@ export const attempts = sqliteTable("attempts", {
   competencies: text("competencies").notNull(), // JSON
   log: text("log").notNull(), // JSON LogEntry[]
   xp: integer("xp").notNull().default(0), // сколько опыта дала попытка
+  points: integer("points").notNull().default(0), // баллы практики за попытку (сгорают через POINTS_TTL_DAYS)
   createdAt: integer("created_at").notNull(),
 });
 
@@ -94,6 +95,8 @@ export interface Achievement {
 
 export interface PlayerProfile extends Player {
   level: LevelInfo;
+  activePoints: number; // несгоревшие баллы практики
+  expiring: ExpiringPoints | null;
   attempts: number;
   bestScore: number;
   achievements: Achievement[];
@@ -104,6 +107,7 @@ export interface LeaderboardEntry {
   xp: number;
   level: number;
   levelTitle: string;
+  activePoints: number; // несгоревшие баллы практики — по ним сортируется рейтинг
   trainingPoints: number;
   practicePoints: number;
   attempts: number;

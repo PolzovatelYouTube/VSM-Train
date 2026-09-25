@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { xpForAttempt, levelFor } from "../shared/gamification";
-import { LEVELS, XP_RULES } from "../shared/rules";
+import { xpForAttempt, levelFor, activePoints, expiringPoints } from "../shared/gamification";
+import { LEVELS, XP_RULES, POINTS_TTL_DAYS } from "../shared/rules";
 
 describe("опыт и уровни", () => {
   it("опыт за попытку: проверочный рейс даёт больше тренировки", () => {
@@ -21,5 +21,26 @@ describe("опыт и уровни", () => {
     expect(top.level).toBe(LEVELS.length);
     expect(top.nextLevelXp).toBeNull();
     expect(top.progress).toBe(1);
+  });
+});
+
+describe("сгорающие баллы", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = 100 * DAY;
+  const row = (daysAgo: number, points: number, mode = "check") => ({ mode, points, createdAt: now - daysAgo * DAY });
+
+  it("рейтинг считает только несгоревшие баллы проверочных рейсов", () => {
+    const rows = [row(1, 50), row(POINTS_TTL_DAYS + 1, 70), row(2, 40, "training")];
+    expect(activePoints(rows, now)).toBe(50);
+  });
+
+  it("предупреждение: сколько сгорит и через сколько дней", () => {
+    const rows = [row(POINTS_TTL_DAYS - 2, 120), row(POINTS_TTL_DAYS - 1, 30), row(1, 80)];
+    expect(expiringPoints(rows, now)).toEqual({ points: 150, inDays: 1 });
+  });
+
+  it("нечему сгорать — null", () => {
+    expect(expiringPoints([row(1, 80)], now)).toBeNull();
+    expect(expiringPoints([row(POINTS_TTL_DAYS + 1, 80)], now)).toBeNull(); // уже сгорели
   });
 });

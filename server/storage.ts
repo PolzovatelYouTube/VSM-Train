@@ -18,7 +18,7 @@ import {
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
-import { xpForAttempt, levelFor } from "@shared/gamification";
+import { xpForAttempt, levelFor, activePoints, expiringPoints } from "@shared/gamification";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc } from "drizzle-orm";
@@ -69,13 +69,22 @@ CREATE TABLE IF NOT EXISTS attempts (
 `);
 
 /** Добавить колонку в уже существующую таблицу (база могла быть создана прошлой версией) */
-function ensureColumn(table: string, column: string, ddl: string) {
+function ensureColumn(table: string, column: string, ddl: string, backfill?: string) {
   const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  if (!cols.some((c) => c.name === column)) sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  if (cols.some((c) => c.name === column)) return;
+  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  if (backfill) sqlite.exec(backfill);
 }
 ensureColumn("players", "team_id", "INTEGER");
 ensureColumn("players", "xp", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("attempts", "xp", "INTEGER NOT NULL DEFAULT 0");
+// старые проверочные рейсы получают баллы по текущему правилу
+ensureColumn(
+  "attempts",
+  "points",
+  "INTEGER NOT NULL DEFAULT 0",
+  `UPDATE attempts SET points = ROUND(score * ${PRACTICE_POINTS.share}) WHERE mode = 'check'`,
+);
 
 export interface IStorage {
   listScenarios(): ScenarioRow[];
@@ -149,6 +158,7 @@ export class DatabaseStorage implements IStorage {
   createAttempt(a: InsertAttempt) {
     const player = this.getOrCreatePlayer(a.playerName);
     const xp = xpForAttempt(a.mode, a.score);
+    const points = a.mode === "check" ? practicePointsFor(a.score) : 0;
     const row = db
       .insert(attempts)
       .values({
@@ -163,6 +173,7 @@ export class DatabaseStorage implements IStorage {
         competencies: JSON.stringify(a.competencies),
         log: JSON.stringify(a.log),
         xp,
+        points,
         createdAt: Date.now(),
       })
       .returning()
@@ -177,7 +188,7 @@ export class DatabaseStorage implements IStorage {
         .run();
     } else {
       db.update(players)
-        .set({ practicePoints: player.practicePoints + practicePointsFor(a.score), xp: player.xp + xp })
+        .set({ practicePoints: player.practicePoints + points, xp: player.xp + xp })
         .where(eq(players.id, player.id))
         .run();
     }
@@ -196,11 +207,21 @@ export class DatabaseStorage implements IStorage {
     if (!p) return undefined;
     const rows = this.listAttempts(name);
     const bestScore = rows.reduce((m, r) => Math.max(m, r.score), 0);
-    return { ...p, level: levelFor(p.xp), attempts: rows.length, bestScore, achievements: computeAchievements(rows) };
+    const now = Date.now();
+    return {
+      ...p,
+      level: levelFor(p.xp),
+      activePoints: activePoints(rows, now),
+      expiring: expiringPoints(rows, now),
+      attempts: rows.length,
+      bestScore,
+      achievements: computeAchievements(rows),
+    };
   }
 
   leaderboard(): LeaderboardEntry[] {
     const ps = db.select().from(players).all();
+    const now = Date.now();
     return ps
       .map((p) => {
         const rows = db.select().from(attempts).where(eq(attempts.playerId, p.id)).all();
@@ -210,13 +231,14 @@ export class DatabaseStorage implements IStorage {
           xp: p.xp,
           level: level.level,
           levelTitle: level.title,
+          activePoints: activePoints(rows, now),
           trainingPoints: p.trainingPoints,
           practicePoints: p.practicePoints,
           attempts: rows.length,
           bestScore: rows.reduce((m, r) => Math.max(m, r.score), 0),
         };
       })
-      .sort((a, b) => b.practicePoints - a.practicePoints || b.trainingPoints - a.trainingPoints);
+      .sort((a, b) => b.activePoints - a.activePoints || b.xp - a.xp);
   }
 }
 

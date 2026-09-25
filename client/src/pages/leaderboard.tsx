@@ -1,4 +1,4 @@
-import { Trophy, Medal, Lock, GraduationCap, ClipboardCheck } from "lucide-react";
+import { Trophy, Medal, Lock, GraduationCap, ClipboardCheck, Flame } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useLeaderboard, useProfile, useAttempts, useScenarios } from "@/lib/api";
 import type { LevelInfo } from "@shared/gamification";
+import { POINTS_TTL_DAYS } from "@shared/rules";
 
 export default function Leaderboard() {
   const { player } = useApp();
@@ -24,7 +25,7 @@ export default function Leaderboard() {
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Рейтинг проводников</h1>
         <p className="text-sm text-muted-foreground">
-          Баллы обучения начисляются за тренировки, баллы практики — только за проверочные рейсы. Место в таблице определяют баллы практики.
+          Баллы обучения начисляются за тренировки, баллы практики — только за проверочные рейсы. Место в таблице определяют баллы практики за последние {POINTS_TTL_DAYS} дней: старые баллы сгорают.
         </p>
       </div>
 
@@ -48,7 +49,7 @@ export default function Leaderboard() {
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
                     <TableHead>Проводник</TableHead>
-                    <TableHead className="text-right">Практика</TableHead>
+                    <TableHead className="text-right">Баллы</TableHead>
                     <TableHead className="text-right hidden sm:table-cell">Обучение</TableHead>
                     <TableHead className="text-right hidden md:table-cell">Рейсов</TableHead>
                     <TableHead className="text-right hidden md:table-cell">Лучший</TableHead>
@@ -66,7 +67,7 @@ export default function Leaderboard() {
                           Ур. {e.level} · {e.levelTitle}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono tabular font-semibold">{e.practicePoints}</TableCell>
+                      <TableCell className="text-right font-mono tabular font-semibold">{e.activePoints}</TableCell>
                       <TableCell className="text-right font-mono tabular hidden sm:table-cell">{e.trainingPoints}</TableCell>
                       <TableCell className="text-right font-mono tabular hidden md:table-cell">{e.attempts}</TableCell>
                       <TableCell className="text-right font-mono tabular hidden md:table-cell">{e.bestScore}</TableCell>
@@ -85,8 +86,14 @@ export default function Leaderboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               {profile && <LevelBar level={profile.level} />}
+              {profile?.expiring && (
+                <p className="flex items-center gap-2 rounded-md border border-[hsl(var(--loyalty))]/40 bg-[hsl(var(--loyalty))]/5 p-2.5 text-sm" data-testid="text-expiring">
+                  <Flame className="size-4 shrink-0 text-[hsl(var(--loyalty))]" />
+                  Через {profile.expiring.inDays} дн. сгорит {profile.expiring.points} баллов — пройдите проверочный рейс, чтобы удержать место.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
-                <Stat icon={<ClipboardCheck className="size-4" />} label="Практика" value={profile?.practicePoints ?? 0} />
+                <Stat icon={<ClipboardCheck className="size-4" />} label="Баллы практики" value={profile?.activePoints ?? 0} />
                 <Stat icon={<GraduationCap className="size-4" />} label="Обучение" value={profile?.trainingPoints ?? 0} />
                 <Stat label="Рейсов" value={profile?.attempts ?? 0} />
                 <Stat label="Лучший балл" value={profile?.bestScore ?? 0} />
