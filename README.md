@@ -26,7 +26,12 @@ npm start          # продакшен-сервер из dist/
 | Сервер | `server/routes.ts`, `server/storage.ts` | Express + Drizzle/SQLite. CRUD сценариев, запись попыток, профиль игрока с ачивками, таблица лидеров. |
 | Редактор | `client/src/pages/editor.tsx`, `components/app/editor-panels.tsx` | Карта вагона (SVG), инструменты: поставить актора, переместить, выбрать кресло по билету, выбрать цель шага. Панели «Акторы», «События», «Состав». |
 | Рейс | `client/src/pages/play.tsx` | Игровой цикл на `requestAnimationFrame`, HUD (таймер, шкалы), карточка диалога, журнал, разбор рейса. Автопереключение вагона на событие. |
-| Рейтинг | `client/src/pages/leaderboard.tsx` | Таблица лидеров (практика / обучение), профиль, 6 достижений, история рейсов. |
+| Рейтинг | `client/src/pages/leaderboard.tsx` | Таблица лидеров по бригаде / депо / компании: место определяют несгоревшие баллы практики. |
+| Геймификация | `shared/gamification.ts`, `shared/achievements.ts` | Опыт (XP) за каждую попытку и уровни «Стажёр → Проводник → Старший проводник → Наставник»; баллы практики сгорают через `POINTS_TTL_DAYS`; челленджи с правилами `complete_category` / `min_score` / `no_timeouts`; декларативный справочник ачивок. |
+| Разбор и аналитика | `shared/analytics.ts`, `components/app/Debrief.tsx` | После рейса — разбор каждого решения: ситуация, выбор, изменение шкал и почему (`option.feedback` или авто-текст), как можно было лучше, нарушение ролевой модели; таймауты отдельно. Навыки по последним рейсам, выводы по шаблонам, матрица бригады и частые ошибки. |
+| Профиль | `client/src/pages/profile.tsx` | Уровень, сгорающие баллы, навыки «освоено / проседает» с трендом, выводы, челленджи, достижения, история. |
+| Руководитель | `client/src/pages/team.tsx` | Бригада: проводники × навыки (цвет + число), готовность по критичным навыкам, 3 самые частые ошибки. |
+| Уведомления | `server/notifications.ts`, `components/app/NotificationBell.tsx` | Новый сценарий, старт челленджа, сгорающие баллы, ачивка, новый уровень. Доставка через `notify()` (сейчас канал in-app), колокольчик опрашивает сервер раз в 20 с. |
 
 ### Формат сценария (упрощённо)
 
@@ -96,6 +101,9 @@ React 18 + TypeScript + Vite, Tailwind v3 + shadcn/ui, TanStack Query, wouter (h
 - **Новый тип шага поведения** — добавить вариант в `behaviorStepSchema` (`shared/scenario.ts`), обработать в `tick()` (`shared/engine.ts`, обработка шагов актора), добавить форму в `StepEditor` (`editor-panels.tsx`).
 - **Новый тип клетки / вагона** — `CELL_KINDS`, `buildCar()` и отрисовка в `CarMap.tsx`.
 - **Новая ачивка** — одна запись в справочнике `ACHIEVEMENTS` (`shared/achievements.ts`): правило описывается декларативно (`attempts`, `meter`, `reaction_below`, `accuracy`, `competency`, `challenges`).
+- **Пороги навыков, XP, уровни, срок жизни баллов, частота уведомлений** — `SKILL_THRESHOLDS`, `CRITICAL_SKILLS`, `XP_RULES`, `LEVELS`, `POINTS_TTL_DAYS`, `NOTIFICATIONS_POLL_MS` в `shared/rules.ts`.
+- **Новый челлендж** — строка в таблице `challenges` (правило — JSON по `challengeRuleSchema`); демо-челленджи — `server/seed.ts`.
+- **Новый канал уведомлений** (push, e-mail, мессенджер) — функция-канал в массиве `CHANNELS` в `server/notifications.ts`; вызывающий код не меняется.
 - **Новая метрика компетенций** — `computeResult()` в `shared/engine.ts`; лог `SimState.log` уже хранит каждое решение с временем реакции.
 
 ## Дорожная карта на хакатон
