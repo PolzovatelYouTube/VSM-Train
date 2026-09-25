@@ -17,9 +17,17 @@ import {
   seatCell,
   isWalkable,
 } from "./scenario";
-
-export const ACTOR_SPEED = 2.4; // клеток в секунду
-export const TIMEOUT_PENALTY = { loyalty: -15, safety: -15 };
+import {
+  ACTOR_SPEED,
+  BUBBLE_SEC,
+  TIMEOUT_PENALTY,
+  METER_MIN,
+  METER_MAX,
+  SCORE_WEIGHTS,
+  FAST_REACTION_SHARE,
+  DEFAULT_REACTION_LIMIT_SEC,
+  RECOMMENDATION_THRESHOLDS,
+} from "./rules";
 
 export interface Waypoint {
   carId: string;
@@ -73,7 +81,7 @@ export interface SimState {
   finished: boolean;
 }
 
-const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
+const clamp = (v: number, lo = METER_MIN, hi = METER_MAX) => Math.max(lo, Math.min(hi, v));
 
 export function createSim(data: ScenarioData): SimState {
   return {
@@ -293,7 +301,7 @@ export function tick(state: SimState, dt: number, data: ScenarioData, opts: Tick
         ra.stepIndex++;
         break;
       case "say":
-        ra.bubble = { text: step.text, until: state.t + 4 };
+        ra.bubble = { text: step.text, until: state.t + BUBBLE_SEC };
         ra.stepIndex++;
         break;
       case "mood":
@@ -440,8 +448,8 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
   // скорость: доля решений, принятых за первую половину отведённого времени
   const fast = log.filter((l) => {
     const node = findNode(data, l.eventId, l.nodeId);
-    const limit = (node?.timerSec ?? 30) * 1000;
-    return l.optionId !== null && l.reactionMs <= limit / 2;
+    const limit = (node?.timerSec ?? DEFAULT_REACTION_LIMIT_SEC) * 1000;
+    return l.optionId !== null && l.reactionMs <= limit * FAST_REACTION_SHARE;
   }).length;
   const speed = log.length ? Math.round((fast / n) * 100) : 100;
 
@@ -453,15 +461,20 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
   };
 
   const score = clamp(
-    Math.round(state.loyalty * 0.35 + state.safety * 0.45 + accuracy * 100 * 0.2 - timeouts * 5),
+    Math.round(
+      state.loyalty * SCORE_WEIGHTS.loyalty +
+        state.safety * SCORE_WEIGHTS.safety +
+        accuracy * 100 * SCORE_WEIGHTS.accuracy -
+        timeouts * SCORE_WEIGHTS.timeoutPenalty,
+    ),
   );
 
   const recommendations: string[] = [];
-  if (competencies.communication < 70)
+  if (competencies.communication < RECOMMENDATION_THRESHOLDS.communication)
     recommendations.push("Повторить модуль «Деэскалация конфликтов и работа с возражениями».");
-  if (competencies.safety < 70)
+  if (competencies.safety < RECOMMENDATION_THRESHOLDS.safety)
     recommendations.push("Отработать алгоритм действий при медицинском инциденте (оценка → доклад → медик).");
-  if (competencies.speed < 60)
+  if (competencies.speed < RECOMMENDATION_THRESHOLDS.speed)
     recommendations.push("Тренировать скорость принятия решений: пройти сценарии в режиме с таймером.");
   if (timeouts > 0) recommendations.push("Есть пропущенные решения — не оставляйте ситуацию без ответа.");
   if (!recommendations.length) recommendations.push("Отличный результат. Попробуйте более сложный сценарий.");

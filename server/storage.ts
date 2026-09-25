@@ -12,6 +12,7 @@ import {
   type LeaderboardEntry,
 } from "@shared/schema";
 import { demoScenario } from "@shared/scenario";
+import { TRAINING_POINTS, PRACTICE_POINTS, ACHIEVEMENT_THRESHOLDS as T } from "@shared/rules";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc } from "drizzle-orm";
@@ -133,12 +134,12 @@ export class DatabaseStorage implements IStorage {
     // Баллы обучения — за любое прохождение тренировки, баллы практики — только за проверочный рейс
     if (a.mode === "training") {
       db.update(players)
-        .set({ trainingPoints: player.trainingPoints + Math.max(10, Math.round(a.score / 2)) })
+        .set({ trainingPoints: player.trainingPoints + trainingPointsFor(a.score) })
         .where(eq(players.id, player.id))
         .run();
     } else {
       db.update(players)
-        .set({ practicePoints: player.practicePoints + a.score })
+        .set({ practicePoints: player.practicePoints + practicePointsFor(a.score) })
         .where(eq(players.id, player.id))
         .run();
     }
@@ -177,6 +178,10 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
+export const trainingPointsFor = (score: number) =>
+  Math.max(TRAINING_POINTS.min, Math.round(score * TRAINING_POINTS.share));
+export const practicePointsFor = (score: number) => Math.round(score * PRACTICE_POINTS.share);
+
 function computeAchievements(rows: Attempt[]): Achievement[] {
   const checks = rows.filter((r) => r.mode === "check");
   return [
@@ -189,32 +194,32 @@ function computeAchievements(rows: Attempt[]): Achievement[] {
     {
       id: "safety_first",
       title: "Безопасность превыше всего",
-      description: "Завершить рейс с рейтингом безопасности 90+",
-      unlocked: rows.some((r) => r.safety >= 90),
+      description: `Завершить рейс с рейтингом безопасности ${T.safetyFirst}+`,
+      unlocked: rows.some((r) => r.safety >= T.safetyFirst),
     },
     {
       id: "diplomat",
       title: "Дипломат",
-      description: "Лояльность пассажиров 90+ по итогам рейса",
-      unlocked: rows.some((r) => r.loyalty >= 90),
+      description: `Лояльность пассажиров ${T.diplomat}+ по итогам рейса`,
+      unlocked: rows.some((r) => r.loyalty >= T.diplomat),
     },
     {
       id: "lightning",
       title: "Молния",
-      description: "Средняя реакция быстрее 5 секунд",
-      unlocked: rows.some((r) => r.avgReactionMs > 0 && r.avgReactionMs < 5000),
+      description: `Средняя реакция быстрее ${T.lightningMs / 1000} секунд`,
+      unlocked: rows.some((r) => r.avgReactionMs > 0 && r.avgReactionMs < T.lightningMs),
     },
     {
       id: "flawless",
       title: "Без ошибок",
       description: "Все решения верные в проверочном рейсе",
-      unlocked: checks.some((r) => r.accuracy >= 0.999),
+      unlocked: checks.some((r) => r.accuracy >= T.flawlessAccuracy),
     },
     {
       id: "veteran",
       title: "Ветеран ВСМ",
-      description: "10 пройденных рейсов",
-      unlocked: rows.length >= 10,
+      description: `${T.veteranRuns} пройденных рейсов`,
+      unlocked: rows.length >= T.veteranRuns,
     },
   ];
 }
