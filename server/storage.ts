@@ -1,10 +1,14 @@
 import {
   scenarios,
+  depots,
+  teams,
   players,
   attempts,
   type ScenarioRow,
   type InsertScenario,
   type Player,
+  type Depot,
+  type Team,
   type Attempt,
   type InsertAttempt,
   type Achievement,
@@ -32,6 +36,15 @@ CREATE TABLE IF NOT EXISTS scenarios (
   data TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS depots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS teams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  depot_id INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS players (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -54,6 +67,13 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 `);
 
+/** Добавить колонку в уже существующую таблицу (база могла быть создана прошлой версией) */
+function ensureColumn(table: string, column: string, ddl: string) {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+}
+ensureColumn("players", "team_id", "INTEGER");
+
 export interface IStorage {
   listScenarios(): ScenarioRow[];
   getScenario(id: number): ScenarioRow | undefined;
@@ -61,6 +81,8 @@ export interface IStorage {
   updateScenario(id: number, s: InsertScenario): ScenarioRow | undefined;
   deleteScenario(id: number): void;
 
+  listDepots(): Depot[];
+  listTeams(): Team[];
   getOrCreatePlayer(name: string): Player;
   getProfile(name: string): PlayerProfile | undefined;
   createAttempt(a: InsertAttempt): Attempt;
@@ -106,10 +128,19 @@ export class DatabaseStorage implements IStorage {
     db.delete(scenarios).where(eq(scenarios.id, id)).run();
   }
 
+  listDepots() {
+    return db.select().from(depots).all();
+  }
+  listTeams() {
+    return db.select().from(teams).all();
+  }
+
+  /** Новый проводник без бригады попадает в первую бригаду — чтобы сразу участвовать в рейтинге бригады и депо */
   getOrCreatePlayer(name: string) {
     const existing = db.select().from(players).where(eq(players.name, name)).get();
     if (existing) return existing;
-    return db.insert(players).values({ name }).returning().get();
+    const firstTeam = db.select().from(teams).orderBy(teams.id).get();
+    return db.insert(players).values({ name, teamId: firstTeam?.id ?? null }).returning().get();
   }
 
   createAttempt(a: InsertAttempt) {

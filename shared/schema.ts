@@ -16,9 +16,22 @@ export const scenarios = sqliteTable("scenarios", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+// Оргструктура: компания → депо → бригада → проводник
+export const depots = sqliteTable("depots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+});
+
+export const teams = sqliteTable("teams", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  depotId: integer("depot_id").notNull(),
+});
+
 export const players = sqliteTable("players", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  teamId: integer("team_id"), // null — проводник ещё не закреплён за бригадой
   trainingPoints: integer("training_points").notNull().default(0),
   practicePoints: integer("practice_points").notNull().default(0),
 });
@@ -50,6 +63,8 @@ export type ScenarioRow = typeof scenarios.$inferSelect;
 
 export const insertPlayerSchema = createInsertSchema(players).pick({ name: true });
 export type Player = typeof players.$inferSelect;
+export type Depot = typeof depots.$inferSelect;
+export type Team = typeof teams.$inferSelect;
 
 export const insertAttemptSchema = z.object({
   playerName: z.string().min(1),
