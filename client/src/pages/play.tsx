@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ArrowLeft, Pause, Play as PlayIcon, RotateCcw, Zap, Gauge, Lightbulb, Eye, Trophy, GraduationCap, ClipboardCheck } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
+import { DebriefCard } from "@/components/app/Debrief";
+import { buildDebrief } from "@shared/analytics";
 import { CarMap, Legend, type MapActor } from "@/components/app/CarMap";
 import { TrainStrip, Meter, Clock, TimerRing, CATEGORY_COLOR } from "@/components/app/widgets";
 import { Button } from "@/components/ui/button";
@@ -199,6 +201,8 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
               </div>
             )}
           </div>
+
+          {phase === "done" && <DebriefCard items={buildDebrief(data, sim.log)} />}
 
           <div className="flex flex-wrap items-center gap-2">
             {phase === "running" && isTraining && (

@@ -643,6 +643,12 @@ function NodeEditor({ ev, node, index, upd }: { ev: GameEvent; node: DialogueNod
             {o.correct && (
               <Input value={o.hint ?? ""} onChange={(e) => un((n) => (n.options[oi].hint = e.target.value))} className="h-7 text-xs" placeholder="Подсказка для режима тренировки" />
             )}
+            <Textarea
+              value={o.feedback ?? ""}
+              onChange={(e) => un((n) => { if (e.target.value) n.options[oi].feedback = e.target.value; else delete n.options[oi].feedback; })}
+              className="text-xs min-h-12"
+              placeholder="Пояснение для разбора: почему этот выбор так влияет на шкалы"
+            />
             <OptionLogic ev={ev} node={node} option={o} onChange={(fn) => un((n) => fn(n.options[oi]))} />
           </div>
         ))}

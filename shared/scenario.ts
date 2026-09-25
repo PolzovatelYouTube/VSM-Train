@@ -205,6 +205,7 @@ export const dialogueOptionSchema = z.object({
   effects: z.object({ loyalty: z.number(), safety: z.number() }),
   correct: z.boolean().optional(), // эталонный вариант (для подсказок и оценки)
   hint: z.string().optional(),
+  feedback: z.string().optional(), // разбор после рейса: почему выбор так повлиял на шкалы
   step: z.enum(ROLE_STEPS).optional(), // какой шаг ролевой модели реализует реплика
   set: z.record(z.string(), flagValueSchema).optional(), // какие флаги выставляет выбор
   if: conditionSchema.optional(), // вариант виден, только если условие истинно
