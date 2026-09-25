@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useScenario, useSubmitAttempt } from "@/lib/api";
 import { EVENT_CATEGORY_LABEL, type ScenarioData } from "@shared/scenario";
-import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, type SimState, type SimResult } from "@shared/engine";
+import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, type SimState, type SimResult } from "@shared/engine";
 
 type Mode = "training" | "check";
 
@@ -251,7 +251,7 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
                   <p className="text-sm leading-relaxed" data-testid="text-dialogue">{activeNode.text}</p>
                 </div>
                 <div className="space-y-2">
-                  {activeNode.options.map((o, i) => (
+                  {visibleOptions(activeNode, sim).map((o, i) => (
                     <button
                       key={o.id}
                       onClick={() => { chooseOption(simRef.current, data, o); setFrame((f) => f + 1); }}

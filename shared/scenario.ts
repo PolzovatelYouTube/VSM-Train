@@ -133,6 +133,33 @@ export const EVENT_CATEGORY_LABEL: Record<EventCategory, string> = {
   request: "Обращение",
 };
 
+// ── Флаги и условия ──
+// Флаги — память сценария между узлами и событиями («предложил переноску», «позвал НП»).
+// Условие — маленький декларативный язык без eval: флаг, диапазон шкалы, И / ИЛИ.
+
+export const flagValueSchema = z.union([z.boolean(), z.number()]);
+export type FlagValue = z.infer<typeof flagValueSchema>;
+
+export const rangeSchema = z.object({ lt: z.number().optional(), gte: z.number().optional() });
+export type Range = z.infer<typeof rangeSchema>;
+
+export type Condition =
+  | { flag: string; eq?: FlagValue }
+  | { loyalty: Range }
+  | { safety: Range }
+  | { all: Condition[] }
+  | { any: Condition[] };
+
+export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
+  z.union([
+    z.object({ flag: z.string(), eq: flagValueSchema.optional() }),
+    z.object({ loyalty: rangeSchema }),
+    z.object({ safety: rangeSchema }),
+    z.object({ all: z.array(conditionSchema) }),
+    z.object({ any: z.array(conditionSchema) }),
+  ]),
+);
+
 export const dialogueOptionSchema = z.object({
   id: z.string(),
   text: z.string(),
@@ -140,6 +167,10 @@ export const dialogueOptionSchema = z.object({
   effects: z.object({ loyalty: z.number(), safety: z.number() }),
   correct: z.boolean().optional(), // эталонный вариант (для подсказок и оценки)
   hint: z.string().optional(),
+  set: z.record(z.string(), flagValueSchema).optional(), // какие флаги выставляет выбор
+  if: conditionSchema.optional(), // вариант виден, только если условие истинно
+  // условные переходы: первый сработавший побеждает, иначе используется next
+  nextIf: z.array(z.object({ if: conditionSchema, next: z.string().nullable() })).optional(),
 });
 export type DialogueOption = z.infer<typeof dialogueOptionSchema>;
 
@@ -156,6 +187,7 @@ export const triggerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("manual") }), // запуск кнопкой в песочнице
   z.object({ type: z.literal("time"), atSec: z.number().min(0) }), // по таймеру рейса
   z.object({ type: z.literal("actor") }), // из шага поведения актора (emit)
+  z.object({ type: z.literal("condition"), if: conditionSchema }), // когда условие стало истинным
 ]);
 export type Trigger = z.infer<typeof triggerSchema>;
 

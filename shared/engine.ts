@@ -13,6 +13,9 @@ import {
   type DialogueNode,
   type DialogueOption,
   type EventCategory,
+  type Condition,
+  type Range,
+  type FlagValue,
   cellAt,
   seatCell,
   isWalkable,
@@ -77,6 +80,7 @@ export interface SimState {
   queue: string[]; // события, ожидающие показа
   active: ActiveDialogue | null;
   log: LogEntry[];
+  flags: Record<string, FlagValue>; // выставляются вариантами ответа (option.set)
   feed: { t: number; text: string; kind: "info" | "warn" | "good" | "bad" }[];
   finished: boolean;
 }
@@ -106,6 +110,7 @@ export function createSim(data: ScenarioData): SimState {
     queue: [],
     active: null,
     log: [],
+    flags: {},
     feed: [{ t: 0, text: "Рейс начался. Пассажиры занимают места.", kind: "info" }],
     finished: false,
   };
@@ -243,9 +248,10 @@ export function tick(state: SimState, dt: number, data: ScenarioData, opts: Tick
 
   state.t += dt;
 
-  // Триггеры по времени
+  // Триггеры по времени и по условию (например, «лояльность упала ниже 30»)
   for (const ev of data.events) {
     if (ev.trigger.type === "time" && state.t >= ev.trigger.atSec) triggerEvent(state, data, ev.id);
+    if (ev.trigger.type === "condition" && evalCondition(ev.trigger.if, state)) triggerEvent(state, data, ev.id);
   }
 
   // Акторы
@@ -372,6 +378,37 @@ export function findNode(data: ScenarioData, eventId: string, nodeId: string): D
   return findEvent(data, eventId)?.nodes.find((n) => n.id === nodeId);
 }
 
+// ───────────────────────────── Условия ─────────────────────────────
+
+type ConditionState = Pick<SimState, "flags" | "loyalty" | "safety">;
+
+const inRange = (v: number, r: Range) => (r.lt === undefined || v < r.lt) && (r.gte === undefined || v >= r.gte);
+
+/**
+ * Чистая проверка условия. Неизвестный флаг считается false (или 0, если сравниваем с числом).
+ * { flag } без eq — «флаг выставлен и не равен false/0».
+ */
+export function evalCondition(cond: Condition, state: ConditionState): boolean {
+  if ("flag" in cond) {
+    const v = state.flags[cond.flag] ?? (typeof cond.eq === "number" ? 0 : false);
+    return cond.eq === undefined ? Boolean(v) : v === cond.eq;
+  }
+  if ("loyalty" in cond) return inRange(state.loyalty, cond.loyalty);
+  if ("safety" in cond) return inRange(state.safety, cond.safety);
+  if ("all" in cond) return cond.all.every((c) => evalCondition(c, state));
+  return cond.any.some((c) => evalCondition(c, state));
+}
+
+/** Варианты ответа, которые видит игрок в текущем состоянии */
+export const visibleOptions = (node: DialogueNode, state: ConditionState) =>
+  node.options.filter((o) => !o.if || evalCondition(o.if, state));
+
+/** Куда ведёт вариант: первый сработавший nextIf, иначе next */
+export function resolveNext(option: DialogueOption, state: ConditionState): string | null {
+  const branch = option.nextIf?.find((b) => evalCondition(b.if, state));
+  return branch ? branch.next : option.next;
+}
+
 export function chooseOption(state: SimState, data: ScenarioData, option: DialogueOption) {
   if (!state.active) return;
   const ev = findEvent(data, state.active.eventId)!;
@@ -387,13 +424,16 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
   });
   state.loyalty = clamp(state.loyalty + option.effects.loyalty);
   state.safety = clamp(state.safety + option.effects.safety);
+  if (option.set) Object.assign(state.flags, option.set);
   state.feed.push({
     t: state.t,
     text: `${ev.title}: ${option.correct ? "верное решение" : "спорное решение"} (лояльность ${fmt(option.effects.loyalty)}, безопасность ${fmt(option.effects.safety)})`,
     kind: option.correct ? "good" : "bad",
   });
-  if (option.next) {
-    state.active = { eventId: ev.id, nodeId: option.next, openedAt: state.t, wallOpenedAt: Date.now() };
+  // переход считается ПОСЛЕ эффектов и флагов: так «лояльность < 30» учитывает только что сделанный выбор
+  const next = resolveNext(option, state);
+  if (next) {
+    state.active = { eventId: ev.id, nodeId: next, openedAt: state.t, wallOpenedAt: Date.now() };
   } else {
     state.active = null;
   }
