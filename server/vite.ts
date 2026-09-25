@@ -4,7 +4,6 @@ import type { Server } from 'node:http';
 import viteConfig from "../vite.config";
 import fs from "node:fs";
 import path from "node:path";
-import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
@@ -42,11 +41,11 @@ export async function setupVite(server: Server, app: Express) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
+      // index.html перечитываем с диска на каждый запрос, чтобы правки подхватывались без рестарта
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        `src="/src/main.tsx?v=${Date.now()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);

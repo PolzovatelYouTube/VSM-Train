@@ -2,33 +2,9 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "node:fs/promises";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
-const allowlist = [
-  "@google/generative-ai",
-  "axios",
-  "cors",
-  "date-fns",
-  "drizzle-orm",
-  "drizzle-zod",
-  "express",
-  "express-rate-limit",
-  "express-session",
-  "jsonwebtoken",
-  "memorystore",
-  "multer",
-  "nanoid",
-  "nodemailer",
-  "openai",
-  "passport",
-  "passport-local",
-  "stripe",
-  "uuid",
-  "ws",
-  "xlsx",
-  "zod",
-  "zod-validation-error",
-];
+// Серверные зависимости, которые вшиваются в dist/index.cjs (остальные остаются external).
+// better-sqlite3 — нативный модуль, поэтому его не бандлим.
+const allowlist = ["dotenv", "drizzle-orm", "drizzle-zod", "express", "zod"];
 
 async function buildAll() {
   await rm("dist", { recursive: true, force: true });

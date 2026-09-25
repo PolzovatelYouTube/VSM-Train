@@ -145,7 +145,6 @@ function ActorInspector({
   const [newStep, setNewStep] = useState<BehaviorStep["type"]>("goto");
 
   const addStep = () => {
-    const firstCar = data.train.cars[0];
     const step: BehaviorStep =
       newStep === "goto"
         ? { type: "goto", target: { kind: "ownSeat" } }
@@ -158,7 +157,6 @@ function ActorInspector({
               : newStep === "mood"
                 ? { type: "mood", delta: -10 }
                 : { type: "sit" };
-    void firstCar;
     upd((a) => a.steps.push(step));
   };
 
