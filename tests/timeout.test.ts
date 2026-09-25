@@ -1,16 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { createSim, tick, timeoutDialogue } from "../shared/engine";
-import { demoScenario } from "../shared/scenario";
+import { createSim, tick, timeoutDialogue, openNode } from "../shared/engine";
+import { standardDemo } from "./helpers";
 import { TIMEOUT_PENALTY } from "../shared/rules";
-
-const open = (s: ReturnType<typeof createSim>, eventId: string, nodeId: string) =>
-  (s.active = { eventId, nodeId, openedAt: s.t, wallOpenedAt: Date.now() });
 
 describe("onTimeout", () => {
   it("без onTimeout — штраф TIMEOUT_PENALTY и конец события", () => {
-    const data = demoScenario();
+    const data = standardDemo();
     const s = createSim(data);
-    open(s, "ev_conflict", "n1");
+    openNode(s, data, "ev_conflict", "n1");
     timeoutDialogue(s, data);
     expect(s.loyalty).toBe(data.initial.loyalty + TIMEOUT_PENALTY.loyalty);
     expect(s.safety).toBe(data.initial.safety + TIMEOUT_PENALTY.safety);
@@ -19,7 +16,7 @@ describe("onTimeout", () => {
   });
 
   it("с onTimeout — свои эффекты, флаг и переход в узел-последствие", () => {
-    const data = demoScenario();
+    const data = standardDemo();
     const ev = data.events.find((e) => e.id === "ev_conflict")!;
     ev.nodes[0].onTimeout = {
       next: "n3",
@@ -28,7 +25,7 @@ describe("onTimeout", () => {
       text: "пассажир ушёл жаловаться начальнику поезда",
     };
     const s = createSim(data);
-    open(s, "ev_conflict", "n1");
+    openNode(s, data, "ev_conflict", "n1");
     timeoutDialogue(s, data);
     expect(s.loyalty).toBe(data.initial.loyalty - 25);
     expect(s.safety).toBe(data.initial.safety);
@@ -38,9 +35,9 @@ describe("onTimeout", () => {
   });
 
   it("tick вызывает таймаут, когда таймер узла истёк (проверочный режим)", () => {
-    const data = demoScenario();
+    const data = standardDemo();
     const s = createSim(data);
-    open(s, "ev_conflict", "n1"); // timerSec = 20
+    openNode(s, data, "ev_conflict", "n1"); // timerSec = 20
     for (let i = 0; i < 21; i++) tick(s, 1, data, { pauseWhileDialogue: false });
     expect(s.log.some((l) => l.optionId === null)).toBe(true);
   });

@@ -10,14 +10,40 @@ import { z } from "zod";
 
 // ───────────────────────────── Вагон и клетки ─────────────────────────────
 
-export const CAR_TYPES = ["first", "second", "bistro"] as const;
+// Классы обслуживания и компоновки — по схемам вагонов из материалов заказчика
+export const CAR_TYPES = ["first", "business", "comfort", "standard", "bistro"] as const;
 export type CarType = (typeof CAR_TYPES)[number];
+export type SeatCarType = Exclude<CarType, "bistro">;
 
 export const CAR_TYPE_LABEL: Record<CarType, string> = {
   first: "Первый класс (2+1)",
-  second: "Второй класс (2+2)",
+  business: "Бизнес (2+2)",
+  comfort: "Комфорт (2+2)",
+  standard: "Стандарт (3+2)",
   bistro: "Вагон-бистро",
 };
+
+export const CAR_TYPE_SHORT: Record<CarType, string> = {
+  first: "1 кл",
+  business: "бизнес",
+  comfort: "комфорт",
+  standard: "стандарт",
+  bistro: "бистро",
+};
+
+/** Буквы мест поперёк вагона; "" — проход */
+export const SEAT_LETTERS: Record<SeatCarType, string[]> = {
+  first: ["A", "", "B", "C"],
+  business: ["A", "B", "", "C", "D"],
+  comfort: ["A", "B", "", "C", "D"],
+  standard: ["A", "B", "C", "", "D", "E"],
+};
+
+/** Рядов по умолчанию при добавлении вагона в редакторе (в первом классе шаг кресел больше) */
+export const DEFAULT_ROWS: Record<CarType, number> = { first: 8, business: 10, comfort: 12, standard: 14, bistro: 8 };
+
+/** Номер ряда клеток (y), по которому идёт проход */
+export const aisleRow = (type: CarType) => (type === "bistro" ? 2 : SEAT_LETTERS[type].indexOf(""));
 
 export const CELL_KINDS = [
   "seat", // кресло (есть номер места)
@@ -51,7 +77,8 @@ export type Cell = z.infer<typeof cellSchema>;
 export const carSchema = z.object({
   id: z.string(),
   number: z.number().int(),
-  type: z.enum(CAR_TYPES),
+  // миграция: старый тип "second" (2+2) читается как "comfort"
+  type: z.preprocess((v) => (v === "second" ? "comfort" : v), z.enum(CAR_TYPES)),
   length: z.number().int(), // клеток по x
   width: z.number().int(), // клеток по y
   cells: z.array(cellSchema),
@@ -261,10 +288,10 @@ export function buildCar(number: number, type: CarType, rows = 12): Car {
     return { id, number, type, length, width, cells };
   }
 
-  const width = type === "first" ? 4 : 5;
-  const aisleY = type === "first" ? 1 : 2;
+  const letters = SEAT_LETTERS[type];
+  const width = letters.length;
+  const aisleY = aisleRow(type);
   const length = rows + 4;
-  const letters = type === "first" ? ["A", "", "B", "C"] : ["A", "B", "", "C", "D"];
 
   for (let x = 0; x < length; x++) {
     for (let y = 0; y < width; y++) {
@@ -300,7 +327,7 @@ export const isWalkable = (car: Car, x: number, y: number) => {
 
 export function demoScenario(): ScenarioData {
   const car1 = buildCar(1, "first", 10);
-  const car2 = buildCar(2, "second", 12);
+  const car2 = buildCar(2, "comfort", 12);
   const car3 = buildCar(3, "bistro", 8);
 
   const evConflict: GameEvent = {

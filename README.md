@@ -29,7 +29,7 @@ npm start          # продакшен-сервер из dist/
 
 ```ts
 {
-  train: { name, cars: [{ id, number, type: "first"|"second"|"bistro", length, width, cells: Cell[] }] },
+  train: { name, cars: [{ id, number, type: "first"|"business"|"comfort"|"standard"|"bistro", length, width, cells: Cell[] }] },
   actors: [{
     id, name, role: "passenger"|"vip"|"elderly"|"child"|"troublemaker"|"conductor",
     ticket: { carId, seat } | null,
@@ -54,7 +54,7 @@ npm start          # продакшен-сервер из dist/
 | --- | --- | --- |
 | GET / POST | `/api/scenarios` | список / создать |
 | GET / PUT / DELETE | `/api/scenarios/:id` | получить / сохранить / удалить |
-| GET | `/api/cars/template?type=second&number=2&rows=12` | сгенерировать вагон |
+| GET | `/api/cars/template?type=comfort&number=2&rows=12` | сгенерировать вагон |
 | POST | `/api/attempts` | записать результат рейса |
 | GET | `/api/attempts?player=Имя` | история попыток |
 | GET | `/api/players/:name` | профиль с ачивками |

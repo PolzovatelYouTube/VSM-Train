@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { roleStepViolation, roleModelScore, createSim, chooseOption, computeResult, type LogEntry } from "../shared/engine";
-import { demoScenario, type DialogueOption, type RoleStep } from "../shared/scenario";
+import { roleStepViolation, roleModelScore, createSim, chooseOption, computeResult, openNode, type LogEntry } from "../shared/engine";
+import { type DialogueOption, type RoleStep } from "../shared/scenario";
+import { standardDemo } from "./helpers";
 import { ROLE_MODEL } from "../shared/rules";
 
 describe("roleStepViolation", () => {
@@ -30,10 +31,10 @@ describe("roleModelScore", () => {
 describe("chooseOption и ролевая модель", () => {
   const opt = (id: string, step: RoleStep): DialogueOption => ({ id, text: "", next: "n1", effects: { loyalty: 0, safety: 0 }, step });
   const setup = () => {
-    const data = demoScenario();
+    const data = standardDemo();
     const s = createSim(data);
     s.loyalty = 50;
-    s.active = { eventId: "ev_conflict", nodeId: "n1", openedAt: 0, wallOpenedAt: Date.now() };
+    openNode(s, data, "ev_conflict", "n1");
     return { data, s };
   };
 

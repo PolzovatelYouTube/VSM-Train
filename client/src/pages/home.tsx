@@ -10,7 +10,7 @@ import { buildCar, type ScenarioData } from "@shared/scenario";
 import { useApp } from "@/lib/player";
 
 function emptyScenario(): ScenarioData {
-  const car = buildCar(1, "second", 12);
+  const car = buildCar(1, "comfort", 12);
   return {
     version: 1,
     train: { name: "Новый состав", cars: [car] },

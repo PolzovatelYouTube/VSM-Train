@@ -12,8 +12,9 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useScenario, useSubmitAttempt } from "@/lib/api";
-import { EVENT_CATEGORY_LABEL, ROLE_STEP_LABEL, type ScenarioData } from "@shared/scenario";
-import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, type SimState, type SimResult } from "@shared/engine";
+import { EVENT_CATEGORY_LABEL, ROLE_STEP_LABEL, CAR_TYPE_LABEL, type ScenarioData } from "@shared/scenario";
+import { PATIENCE_BY_CLASS } from "@shared/rules";
+import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, eventCarType, type SimState, type SimResult } from "@shared/engine";
 
 type Mode = "training" | "check";
 
@@ -112,7 +113,9 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
   const car = data.train.cars.find((c) => c.id === carId) ?? data.train.cars[0];
   const activeEvent = sim.active ? findEvent(data, sim.active.eventId) : null;
   const activeNode = sim.active ? findNode(data, sim.active.eventId, sim.active.nodeId) : null;
-  const timerLeft = activeNode?.timerSec ? Math.max(0, activeNode.timerSec - (sim.t - (sim.active?.openedAt ?? 0))) : null;
+  const limitSec = sim.active?.limitSec;
+  const timerLeft = limitSec ? Math.max(0, limitSec - (sim.t - (sim.active?.openedAt ?? 0))) : null;
+  const eventCar = sim.active ? eventCarType(sim, data, sim.active.eventId) : null;
 
   const mapActors: MapActor[] = useMemo(
     () =>
@@ -241,8 +244,13 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
                   <div className="flex-1 min-w-0">
                     <Badge className={cn("border-0 mb-2", CATEGORY_COLOR[activeEvent.category])}>{EVENT_CATEGORY_LABEL[activeEvent.category]}</Badge>
                     <CardTitle className="text-base leading-snug">{activeEvent.title}</CardTitle>
+                    {eventCar && PATIENCE_BY_CLASS[eventCar].timer < 1 && (
+                      <p className="mt-1 text-xs text-muted-foreground" data-testid="text-patience">
+                        {CAR_TYPE_LABEL[eventCar]}: пассажир ждёт меньше, потеря лояльности ×{PATIENCE_BY_CLASS[eventCar].loyaltyLoss}
+                      </p>
+                    )}
                   </div>
-                  {!isTraining && timerLeft !== null && <TimerRing left={timerLeft} total={activeNode.timerSec!} />}
+                  {!isTraining && timerLeft !== null && limitSec && <TimerRing left={timerLeft} total={limitSec} />}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -17,6 +17,7 @@ import {
   type Range,
   type FlagValue,
   type RoleStep,
+  type CarType,
   ROLE_STEPS,
   ROLE_STEP_LABEL,
   cellAt,
@@ -34,6 +35,7 @@ import {
   DEFAULT_REACTION_LIMIT_SEC,
   RECOMMENDATION_THRESHOLDS,
   ROLE_MODEL,
+  PATIENCE_BY_CLASS,
 } from "./rules";
 
 export interface Waypoint {
@@ -66,6 +68,7 @@ export interface LogEntry {
   reactionMs: number;
   correct: boolean;
   effects: { loyalty: number; safety: number }; // фактически применённые (с учётом штрафов/бонусов)
+  limitSec?: number; // сколько секунд было на решение (с учётом класса вагона)
   step?: RoleStep; // шаг ролевой модели выбранной реплики
   violation?: RoleViolation; // нарушение ролевой модели, если было
 }
@@ -77,6 +80,7 @@ export interface ActiveDialogue {
   nodeId: string;
   openedAt: number; // sim-время открытия узла
   wallOpenedAt: number; // Date.now() для измерения реакции
+  limitSec?: number; // таймер узла × терпение класса вагона; undefined = без таймера
 }
 
 export interface SimState {
@@ -243,9 +247,9 @@ export function tick(state: SimState, dt: number, data: ScenarioData, opts: Tick
 
   // Таймер открытого диалога
   if (state.active) {
-    const node = findNode(data, state.active.eventId, state.active.nodeId);
-    if (!opts.pauseWhileDialogue && node?.timerSec) {
-      if (state.t + dt - state.active.openedAt >= node.timerSec) {
+    const limit = state.active.limitSec;
+    if (!opts.pauseWhileDialogue && limit) {
+      if (state.t + dt - state.active.openedAt >= limit) {
         state.t += dt;
         timeoutDialogue(state, data);
         return;
@@ -376,7 +380,33 @@ export function triggerEvent(state: SimState, data: ScenarioData, eventId: strin
 function openEvent(state: SimState, data: ScenarioData, eventId: string) {
   const ev = data.events.find((e) => e.id === eventId);
   if (!ev) return;
-  state.active = { eventId, nodeId: ev.startNode, openedAt: state.t, wallOpenedAt: Date.now() };
+  openNode(state, data, eventId, ev.startNode);
+}
+
+/** Класс вагона, где сейчас находится связанный с событием актор (от него зависит терпение) */
+export function eventCarType(state: SimState, data: ScenarioData, eventId: string): CarType | null {
+  const actorId = findEvent(data, eventId)?.actorId;
+  const carId = state.actors.find((a) => a.id === actorId)?.carId;
+  return data.train.cars.find((c) => c.id === carId)?.type ?? null;
+}
+
+const patience = (state: SimState, data: ScenarioData, eventId: string) =>
+  PATIENCE_BY_CLASS[eventCarType(state, data, eventId) ?? "standard"];
+
+/** Открыть узел диалога: таймер узла масштабируется терпением класса вагона */
+export function openNode(state: SimState, data: ScenarioData, eventId: string, nodeId: string) {
+  const timer = findNode(data, eventId, nodeId)?.timerSec;
+  const limitSec = timer ? Math.round(timer * patience(state, data, eventId).timer * 10) / 10 : undefined;
+  state.active = { eventId, nodeId, openedAt: state.t, wallOpenedAt: Date.now(), limitSec };
+}
+
+/** Применить эффекты к шкалам. Потеря лояльности усиливается по классу вагона. Возвращает фактические эффекты. */
+function applyEffects(state: SimState, data: ScenarioData, eventId: string, fx: { loyalty: number; safety: number }) {
+  const loyalty = fx.loyalty < 0 ? Math.round(fx.loyalty * patience(state, data, eventId).loyaltyLoss) : fx.loyalty;
+  const applied = { loyalty, safety: fx.safety };
+  state.loyalty = clamp(state.loyalty + applied.loyalty);
+  state.safety = clamp(state.safety + applied.safety);
+  return applied;
 }
 
 export function findEvent(data: ScenarioData, id: string): GameEvent | undefined {
@@ -460,10 +490,10 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
     !eventLog.some((l) => l.violation) &&
     ROLE_STEPS.every((s) => s === "assure" || prevSteps.includes(s));
   const extra = violation ? ROLE_MODEL.violationPenalty : fullChain ? ROLE_MODEL.fullChainBonus : null;
-  const effects = {
+  const effects = applyEffects(state, data, ev.id, {
     loyalty: option.effects.loyalty + (extra?.loyalty ?? 0),
     safety: option.effects.safety + (extra?.safety ?? 0),
-  };
+  });
 
   state.log.push({
     t: state.t,
@@ -474,11 +504,10 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
     reactionMs: Date.now() - state.active.wallOpenedAt,
     correct: !!option.correct,
     effects,
+    limitSec: state.active.limitSec,
     ...(option.step && { step: option.step }),
     ...(violation && { violation }),
   });
-  state.loyalty = clamp(state.loyalty + effects.loyalty);
-  state.safety = clamp(state.safety + effects.safety);
   if (option.set) Object.assign(state.flags, option.set);
   state.feed.push({
     t: state.t,
@@ -491,7 +520,7 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
   // переход считается ПОСЛЕ эффектов и флагов: так «лояльность < 30» учитывает только что сделанный выбор
   const next = resolveNext(option, state);
   if (next) {
-    state.active = { eventId: ev.id, nodeId: next, openedAt: state.t, wallOpenedAt: Date.now() };
+    openNode(state, data, ev.id, next);
   } else {
     state.active = null;
   }
@@ -506,7 +535,7 @@ export function timeoutDialogue(state: SimState, data: ScenarioData) {
   const ev = findEvent(data, state.active.eventId)!;
   const node = findNode(data, ev.id, state.active.nodeId);
   const branch = node?.onTimeout;
-  const effects = branch?.effects ?? TIMEOUT_PENALTY;
+  const effects = applyEffects(state, data, ev.id, branch?.effects ?? TIMEOUT_PENALTY);
   state.log.push({
     t: state.t,
     eventId: ev.id,
@@ -516,14 +545,12 @@ export function timeoutDialogue(state: SimState, data: ScenarioData) {
     reactionMs: Date.now() - state.active.wallOpenedAt,
     correct: false,
     effects,
+    limitSec: state.active.limitSec,
   });
-  state.loyalty = clamp(state.loyalty + effects.loyalty);
-  state.safety = clamp(state.safety + effects.safety);
   if (branch?.set) Object.assign(state.flags, branch.set);
   state.feed.push({ t: state.t, text: `${ev.title}: ${branch?.text ?? "время на решение истекло"}`, kind: "bad" });
-  state.active = branch?.next
-    ? { eventId: ev.id, nodeId: branch.next, openedAt: state.t, wallOpenedAt: Date.now() }
-    : null;
+  if (branch?.next) openNode(state, data, ev.id, branch.next);
+  else state.active = null;
 }
 
 const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
@@ -556,7 +583,7 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
   // скорость: доля решений, принятых за первую половину отведённого времени
   const fast = log.filter((l) => {
     const node = findNode(data, l.eventId, l.nodeId);
-    const limit = (node?.timerSec ?? DEFAULT_REACTION_LIMIT_SEC) * 1000;
+    const limit = (l.limitSec ?? node?.timerSec ?? DEFAULT_REACTION_LIMIT_SEC) * 1000;
     return l.optionId !== null && l.reactionMs <= limit * FAST_REACTION_SHARE;
   }).length;
   const speed = log.length ? Math.round((fast / n) * 100) : 100;

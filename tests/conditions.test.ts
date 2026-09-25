@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { evalCondition, resolveNext, visibleOptions, createSim, chooseOption } from "../shared/engine";
-import { demoScenario, type DialogueOption, type DialogueNode } from "../shared/scenario";
+import { evalCondition, resolveNext, visibleOptions, createSim, chooseOption, openNode } from "../shared/engine";
+import { type DialogueOption, type DialogueNode } from "../shared/scenario";
+import { standardDemo } from "./helpers";
 
 const st = (over: Partial<{ loyalty: number; safety: number; flags: Record<string, boolean | number> }> = {}) => ({
   loyalty: 50,
@@ -69,10 +70,10 @@ describe("nextIf и видимость вариантов", () => {
   });
 
   it("chooseOption выставляет флаги и считает переход после эффектов", () => {
-    const data = demoScenario();
+    const data = standardDemo();
     const s = createSim(data);
     s.loyalty = 35;
-    s.active = { eventId: "ev_conflict", nodeId: "n1", openedAt: 0, wallOpenedAt: Date.now() };
+    openNode(s, data, "ev_conflict", "n1");
     chooseOption(s, data, { ...opt, effects: { loyalty: -10, safety: 0 }, set: { argued: true }, nextIf: [{ if: { loyalty: { lt: 30 } }, next: "n3" }] });
     expect(s.flags.argued).toBe(true);
     expect(s.loyalty).toBe(25);

@@ -3,7 +3,7 @@
  * Используется и в редакторе (клики по клеткам/акторам), и в режиме прогона (анимация движения).
  */
 import { memo } from "react";
-import type { Car, Cell, ActorRole } from "@shared/scenario";
+import { aisleRow, type Car, type Cell, type ActorRole } from "@shared/scenario";
 
 export const CELL = 40;
 const PAD = 22;
@@ -147,7 +147,7 @@ function CellView({
       const fill =
         mark === "ticket" ? v("primary") : mark === "target" ? v("loyalty") : mark === "occupied" ? v("muted") : v("accent");
       const opacity = mark ? 0.35 : 1;
-      const isTop = cell.y < 2; // спинка со стороны окна
+      const isTop = cell.y < aisleRow(carType); // спинка со стороны окна
       return (
         <g {...common} data-testid={`cell-seat-${cell.seat}`}>
           {base}
@@ -169,7 +169,7 @@ function CellView({
           >
             {cell.seat}
           </text>
-          {carType === "first" && (
+          {(carType === "first" || carType === "business") && (
             <circle cx={px + CELL - 9} cy={isTop ? py + CELL - 9 : py + 9} r={2} style={{ fill: v("chart-5"), opacity: 0.8 }} />
           )}
         </g>

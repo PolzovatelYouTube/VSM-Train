@@ -2,11 +2,16 @@ import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
 import { storage, seedIfEmpty } from "./storage";
 import { insertScenarioSchema, insertAttemptSchema } from "@shared/schema";
-import { buildCar, CAR_TYPES } from "@shared/scenario";
+import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
 import { z } from "zod";
 
 const parseId = (req: Request) => Number.parseInt(String(req.params.id), 10);
-const rowToJson = (r: { data: string } & Record<string, unknown>) => ({ ...r, data: JSON.parse(r.data) });
+// Данные прогоняем через схему, чтобы старые сценарии мигрировали на лету (например, тип вагона "second" → "comfort")
+const rowToJson = (r: { data: string } & Record<string, unknown>) => {
+  const raw = JSON.parse(r.data);
+  const parsed = scenarioDataSchema.safeParse(raw);
+  return { ...r, data: parsed.success ? parsed.data : raw };
+};
 
 function bad(res: Response, err: unknown) {
   const message = err instanceof z.ZodError ? z.prettifyError(err) : String((err as Error)?.message ?? err);
@@ -54,11 +59,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Генератор планировки вагона — чтобы клиент и сервер использовали одну функцию
   app.get("/api/cars/template", (req, res) => {
-    const type = String(req.query.type ?? "second");
-    const number = Number(req.query.number ?? 1);
-    const rows = Number(req.query.rows ?? 12);
+    const type = String(req.query.type ?? "comfort");
     if (!(CAR_TYPES as readonly string[]).includes(type)) return res.status(400).json({ message: "Неизвестный тип вагона" });
-    res.json(buildCar(number, type as (typeof CAR_TYPES)[number], rows));
+    const number = Number(req.query.number ?? 1);
+    const rows = Number(req.query.rows ?? DEFAULT_ROWS[type as CarType]);
+    res.json(buildCar(number, type as CarType, rows));
   });
 
   // ── Попытки, игроки, рейтинг ──

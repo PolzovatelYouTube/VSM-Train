@@ -16,6 +16,8 @@ import {
   EVENT_CATEGORY_LABEL,
   CAR_TYPES,
   CAR_TYPE_LABEL,
+  DEFAULT_ROWS,
+  aisleRow,
   buildCar,
   uid,
 } from "@shared/scenario";
@@ -649,10 +651,10 @@ export function TrainPanel({
   setMeta: (m: { name: string; description: string; difficulty: number }) => void;
   onSelectCar: (id: string) => void;
 }) {
-  const [type, setType] = useState<(typeof CAR_TYPES)[number]>("second");
+  const [type, setType] = useState<(typeof CAR_TYPES)[number]>("comfort");
   const addCar = () => {
     mutate((d) => {
-      const car = buildCar(d.train.cars.length + 1, type, type === "bistro" ? 8 : 12);
+      const car = buildCar(d.train.cars.length + 1, type, DEFAULT_ROWS[type]);
       d.train.cars.push(car);
     });
   };
@@ -663,7 +665,7 @@ export function TrainPanel({
       d.train.cars.forEach((c, i) => (c.number = i + 1));
       const first = d.train.cars[0];
       d.actors.forEach((a) => {
-        if (a.spawn.carId === id) a.spawn = { carId: first.id, x: 1, y: first.type === "first" ? 1 : 2 };
+        if (a.spawn.carId === id) a.spawn = { carId: first.id, x: 1, y: aisleRow(first.type) };
         if (a.ticket?.carId === id) a.ticket = null;
       });
     });

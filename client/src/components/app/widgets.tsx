@@ -1,5 +1,5 @@
 import type { Car } from "@shared/scenario";
-import { CAR_TYPE_LABEL } from "@shared/scenario";
+import { CAR_TYPE_LABEL, CAR_TYPE_SHORT } from "@shared/scenario";
 import { cn } from "@/lib/utils";
 import { Heart, ShieldCheck, Timer } from "lucide-react";
 
@@ -35,7 +35,7 @@ export function TrainStrip({
           >
             <span className="font-mono font-semibold">{c.number}</span>
             <span className={cn("ml-1.5 text-xs", active ? "text-primary-foreground/80" : "text-muted-foreground")}>
-              {c.type === "first" ? "1 кл" : c.type === "second" ? "2 кл" : "бистро"}
+              {CAR_TYPE_SHORT[c.type]}
             </span>
             {badges[c.id] ? (
               <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-[hsl(var(--loyalty))] text-[10px] font-bold text-white grid place-items-center">
