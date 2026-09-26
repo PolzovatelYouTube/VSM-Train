@@ -67,11 +67,15 @@ export const useSubmitAttempt = () =>
     },
   });
 
+/** Получение уведомлений остаётся в API-слое, а не в компоненте колокольчика. */
+export const getNotifications = async (player: string): Promise<Notification[]> =>
+  (await apiRequest("GET", `/api/notifications?player=${encodeURIComponent(player)}`)).json();
+
 /** Уведомления: опрос сервера раз в NOTIFICATIONS_POLL_MS (TanStack Query refetchInterval) */
 export const useNotifications = (player: string) =>
   useQuery<Notification[]>({
     queryKey: ["/api/notifications", player],
-    queryFn: async () => (await apiRequest("GET", `/api/notifications?player=${encodeURIComponent(player)}`)).json(),
+    queryFn: () => getNotifications(player),
     enabled: !!player,
     refetchInterval: NOTIFICATIONS_POLL_MS,
     staleTime: 0,
