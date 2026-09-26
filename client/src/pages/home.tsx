@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScenarios, useSaveScenario, useDeleteScenario, useLeaderboard } from "@/lib/api";
+import { deleteScenarioMessage } from "@/lib/deleteConfirmation";
 import { buildCar, type ScenarioData } from "@shared/scenario";
 import { useApp } from "@/lib/player";
 
@@ -34,6 +35,11 @@ export default function Home() {
       body: { name: "Новый сценарий", description: "", difficulty: 1, data: emptyScenario() },
     });
     navigate(`/editor/${s.id}`);
+  };
+
+  const remove = (scenario: { id: number; name: string }) => {
+    if (!window.confirm(deleteScenarioMessage(scenario))) return;
+    del.mutate(scenario.id);
   };
 
   return (
@@ -97,9 +103,11 @@ export default function Home() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="ml-auto text-muted-foreground"
-                    aria-label="Удалить"
-                    onClick={() => del.mutate(s.id)}
+                    className="ml-auto text-muted-foreground hover:text-destructive"
+                    aria-label={`Удалить сценарий «${s.name}»`}
+                    title="Удалить сценарий"
+                    disabled={del.isPending}
+                    onClick={() => remove(s)}
                     data-testid={`button-delete-${s.id}`}
                   >
                     <Trash2 className="size-4" />
