@@ -333,3 +333,53 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 @keyframes pulse-ring { 0% { transform: scale(1); opacity: .8 } 100% { transform: scale(1.9); opacity: 0 } }
 .pulse-ring { animation: pulse-ring 1.2s ease-out infinite; transform-origin: center; transform-box: fill-box; }
 @media (prefers-reduced-motion: reduce) { .pulse-ring { animation: none } }
+
+/* ───────────────────────── Игровой режим: сцена вагона ─────────────────────────
+   Только transform/opacity. Параллакс и покачивание — чистый CSS, без React-рендера на кадр.
+   prefers-reduced-motion: статичные состояния и короткие crossfade (см. конец блока). */
+.g-landscape { container-type: size; overflow: clip; }
+.g-par { position: absolute; top: 0; bottom: 0; left: 0; width: calc(100% + 400cqh); background-repeat: repeat-x; background-size: auto 100%; will-change: transform; }
+.g-par-far { animation: g-par 70s linear infinite; }
+.g-par-near { animation: g-par 7s linear infinite; }
+@keyframes g-par { from { transform: translate3d(0, 0, 0) } to { transform: translate3d(-400cqh, 0, 0) } }
+
+.g-sway { animation: g-sway 5s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes g-sway { 0%, 100% { transform: translateY(0) rotate(0) } 30% { transform: translateY(1.5px) rotate(.06deg) } 65% { transform: translateY(-.5px) rotate(-.05deg) } }
+
+.g-camera { transform-origin: 0 0; transition: transform .9s cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+.g-actor { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; transition: transform .12s linear, opacity .4s ease; }
+.g-body { transform-origin: 50% 100%; }
+.g-st-idle .g-body, .g-st-sit .g-body, .g-st-listen .g-body { animation: g-breath 3.6s ease-in-out infinite; }
+.g-st-walk .g-body { animation: g-bob .42s ease-in-out infinite; }
+.g-st-walk .g-leg-a { animation: g-leg .42s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0; }
+.g-st-walk .g-leg-b { animation: g-leg .42s ease-in-out infinite reverse; transform-box: fill-box; transform-origin: 50% 0; }
+.g-st-talk .g-mouth { animation: g-talk .26s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 50%; }
+.g-st-talk .g-arm-front { animation: g-gesture 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 8%; }
+.g-st-positive .g-body { animation: g-pop .6s cubic-bezier(.3, 1.6, .5, 1) 1; }
+.g-st-negative .g-body { animation: g-shake .5s ease-in-out 1; }
+@keyframes g-breath { 0%, 100% { transform: scaleY(1) } 50% { transform: scaleY(1.012) } }
+@keyframes g-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+@keyframes g-leg { 0%, 100% { transform: rotate(14deg) } 50% { transform: rotate(-14deg) } }
+@keyframes g-talk { from { transform: scaleY(.3) } to { transform: scaleY(1.3) } }
+@keyframes g-gesture { 0%, 100% { transform: rotate(0) } 40% { transform: rotate(-38deg) } 70% { transform: rotate(-24deg) } }
+@keyframes g-pop { 0% { transform: translateY(0) } 40% { transform: translateY(-14px) } 100% { transform: translateY(0) } }
+@keyframes g-shake { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(3px) } }
+
+.g-fade-in { animation: g-fade .45s ease-out both; }
+.g-rise { animation: g-rise .35s cubic-bezier(.2, .8, .2, 1) both; }
+.g-opt { animation: g-rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
+.g-mark { animation: g-mark .5s cubic-bezier(.3, 1.6, .5, 1) both; transform-origin: 50% 100%; }
+.g-delta { animation: g-delta 1.4s ease-out both; }
+.g-flash { animation: g-flash 1.2s ease-out both; }
+.g-spot { animation: g-fade .5s ease-out both; }
+@keyframes g-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes g-rise { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes g-mark { from { opacity: 0; transform: scale(.4) } to { opacity: 1; transform: none } }
+@keyframes g-delta { 0% { opacity: 0; transform: translateY(6px) } 15% { opacity: 1; transform: none } 80% { opacity: 1 } 100% { opacity: 0; transform: translateY(-8px) } }
+@keyframes g-flash { 0% { opacity: 0 } 15% { opacity: 1 } 100% { opacity: 0 } }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-par-far, .g-par-near, .g-sway, .g-body, .g-leg-a, .g-leg-b, .g-mouth, .g-arm-front { animation: none !important; }
+  .g-camera, .g-actor { transition: opacity .2s ease !important; }
+  .g-rise, .g-opt, .g-mark, .g-delta { animation: g-fade .2s ease-out both !important; }
+}
