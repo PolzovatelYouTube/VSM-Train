@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { ArrowLeft, Play, Save, Check, MousePointer2 } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { CarMap, Legend, type MapActor, type SeatMark } from "@/components/app/CarMap";
 import { TrainStrip } from "@/components/app/widgets";
 import { ActorsPanel, EventsPanel, TrainPanel, type Tool } from "@/components/app/editor-panels";
+import { VisualPanel } from "@/components/app/VisualPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +19,7 @@ export default function Editor() {
   const { data: row, isLoading } = useScenario(sid);
   const save = useSaveScenario();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [data, setData] = useState<ScenarioData | null>(null);
   const [meta, setMeta] = useState({ name: "", description: "", difficulty: 1 });
@@ -164,6 +166,20 @@ export default function Editor() {
     }
   };
 
+  // Предпросмотр игры: сначала сохраняем, чтобы игровой режим увидел текущие правки
+  const preview = async () => {
+    if (dirty) {
+      if (!data) return;
+      try {
+        await save.mutateAsync({ id: sid, body: { ...meta, data } });
+        setDirty(false);
+      } catch (e) {
+        return toast({ title: "Ошибка сохранения", description: String((e as Error).message), variant: "destructive" });
+      }
+    }
+    navigate(`/play/${sid}/training`);
+  };
+
   const toolHint: Record<Tool["kind"], string> = {
     select: "Клик по актору — выбрать. Клик по пустой клетке — снять выделение.",
     addActor: "Кликните по клетке, где появится новый актор.",
@@ -201,10 +217,8 @@ export default function Editor() {
             {dirty ? <Save className="size-4 mr-1" /> : <Check className="size-4 mr-1" />}
             {dirty ? "Сохранить" : "Сохранено"}
           </Button>
-          <Button size="sm" variant="secondary" asChild data-testid="button-run">
-            <Link href={`/play/${sid}/training`}>
-              <Play className="size-4 mr-1" /> Запустить
-            </Link>
+          <Button size="sm" variant="secondary" onClick={preview} disabled={save.isPending} data-testid="button-run">
+            <Play className="size-4 mr-1" /> Предпросмотр игры
           </Button>
         </div>
       </div>
@@ -244,10 +258,11 @@ export default function Editor() {
 
         <aside className="rounded-lg border bg-card p-4 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full grid grid-cols-3">
+            <TabsList className="w-full grid grid-cols-4">
               <TabsTrigger value="actors" data-testid="tab-actors">Акторы</TabsTrigger>
               <TabsTrigger value="events" data-testid="tab-events">События</TabsTrigger>
               <TabsTrigger value="train" data-testid="tab-train">Состав</TabsTrigger>
+              <TabsTrigger value="visual" data-testid="tab-visual">Сцена</TabsTrigger>
             </TabsList>
             <TabsContent value="actors" className="pt-4">
               <ActorsPanel data={data} mutate={mutate} selectedId={actorId} onSelect={selectActor} tool={tool} setTool={setTool} currentCarId={car.id} />
@@ -257,6 +272,9 @@ export default function Editor() {
             </TabsContent>
             <TabsContent value="train" className="pt-4">
               <TrainPanel data={data} mutate={mutate} meta={meta} setMeta={updMeta} onSelectCar={setCarId} />
+            </TabsContent>
+            <TabsContent value="visual" className="pt-4">
+              <VisualPanel data={data} mutate={mutate} carId={car.id} onPreview={preview} previewBusy={save.isPending} />
             </TabsContent>
           </Tabs>
         </aside>
