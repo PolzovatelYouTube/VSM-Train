@@ -11,7 +11,6 @@ import {
   type CarType,
   type Landscape,
   LANDSCAPES,
-  aisleRow,
 } from "./scenario";
 import { type SimState, type LogEntry, findEvent, findNode } from "./engine";
 
@@ -197,7 +196,6 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
   }
 
   const kind = consequenceEntry ? consequenceKind(consequenceEntry) : null;
-  const aisle = aisleRow(car.type);
   const len = Math.max(1, car.length - 1);
   const inDialogue = phase === "dialogue" || phase === "consequence";
 
@@ -240,7 +238,8 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
         preset: resolvePreset(def),
         accent: def.visual?.accent,
         x: Math.min(1, Math.max(0, ra.x / len)),
-        depth: Math.round(ra.y) === aisle && !ra.seated ? 0.5 : depth,
+        // стоящие и идущие всегда в проходе, даже если клетка — кресло (иначе накладываются на сидящих)
+        depth: ra.seated && !walking ? depth : 0.5,
         seated: ra.seated && !walking,
         state,
         emotion,

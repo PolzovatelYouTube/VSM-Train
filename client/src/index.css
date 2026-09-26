@@ -378,6 +378,22 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 @keyframes g-delta { 0% { opacity: 0; transform: translateY(6px) } 15% { opacity: 1; transform: none } 80% { opacity: 1 } 100% { opacity: 0; transform: translateY(-8px) } }
 @keyframes g-flash { 0% { opacity: 0 } 15% { opacity: 1 } 100% { opacity: 0 } }
 
+/* Раскладка: мобильный портрет по умолчанию → альбомная → десктоп */
+.game-layout { display: grid; gap: .75rem; grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "dialogue" "side"; }
+.game-stage { grid-area: stage; height: 45svh; min-height: 240px; }
+.game-dialogue { grid-area: dialogue; }
+.game-side { grid-area: side; min-width: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .game-layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: "stage dialogue" "side side"; }
+  .game-stage { height: calc(100svh - 3.5rem - 3.25rem - 1.5rem); min-height: 200px; }
+  .game-dialogue { max-height: calc(100svh - 3.5rem - 3.25rem - 1.5rem); overflow-y: auto; }
+}
+@media (min-width: 1024px) and (min-height: 541px) {
+  .game-layout { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "stage side"; }
+  .game-stage { height: clamp(420px, calc(100vh - 11rem), 720px); }
+  .game-dialogue { grid-area: stage; align-self: end; z-index: 20; margin: 0 1rem 1rem; max-height: 55%; overflow-y: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .g-par-far, .g-par-near, .g-sway, .g-body, .g-leg-a, .g-leg-b, .g-mouth, .g-arm-front { animation: none !important; }
   .g-camera, .g-actor { transition: opacity .2s ease !important; }
