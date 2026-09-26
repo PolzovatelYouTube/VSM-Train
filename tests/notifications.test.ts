@@ -1,13 +1,16 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { eq } from "drizzle-orm";
+import { attempts } from "../shared/schema";
 
 // отдельная БД в памяти, чтобы тест не трогал data.db
 process.env.DB_PATH = ":memory:";
 let n: typeof import("../server/notifications");
 let storage: typeof import("../server/storage").storage;
+let db: typeof import("../server/storage").db;
 let seedChallenges: typeof import("../server/seed").seedChallenges;
 
 beforeAll(async () => {
-  ({ storage } = await import("../server/storage"));
+  ({ storage, db } = await import("../server/storage"));
   ({ seedChallenges } = await import("../server/seed"));
   n = await import("../server/notifications");
   seedChallenges();
@@ -34,12 +37,13 @@ describe("уведомления", () => {
     const [forA] = n.listNotifications(a.id).filter((x) => x.type === "new_scenario");
     expect(forA).toBeDefined();
     expect(n.listNotifications(b.id).some((x) => x.type === "new_scenario")).toBe(true);
-    expect(n.markRead(forA.id)?.readAt).not.toBeNull();
+    expect(n.markRead(forA.id, a.id)?.readAt).not.toBeNull();
   });
 
   it("о челлендже — один раз, сколько бы ни опрашивали", () => {
-    const p = n.syncNotifications("Тест Третий");
-    n.syncNotifications("Тест Третий");
+    const name = "Тест Третий";
+    const p = n.syncNotifications(name);
+    for (let i = 0; i < 10; i++) n.syncNotifications(name);
     const started = n.listNotifications(p.id).filter((x) => x.type === "challenge_started");
     expect(started.length).toBe(storage.challengesFor(p.id).length);
   });
@@ -49,7 +53,7 @@ describe("уведомления", () => {
     // попытка 12 дней назад: при TTL 14 дней сгорит через 2 дня
     storage.createAttempt(attempt("Тест Четвёртый", 80), Date.now() - 12 * DAY);
     const p = n.syncNotifications("Тест Четвёртый");
-    n.syncNotifications("Тест Четвёртый");
+    for (let i = 0; i < 10; i++) n.syncNotifications("Тест Четвёртый");
     const expiring = n.listNotifications(p.id).filter((x) => x.type === "points_expiring");
     expect(expiring).toHaveLength(1);
     expect(expiring[0].body).toMatch(/Через 2 дн\./);
@@ -64,5 +68,17 @@ describe("уведомления", () => {
     const types = n.listNotifications(p.id).map((x) => x.type);
     expect(types).toContain("achievement");
     expect(types).toContain("level_up");
+  });
+
+  it("persists an achievement award after the source attempt changes", () => {
+    const name = "Тест Награды";
+    const saved = storage.createAttempt(attempt(name, 100));
+    const first = storage.getProfile(name)!.achievements.find((a) => a.id === "safety_first")!;
+    expect(first).toMatchObject({ unlocked: true, sourceAttemptId: saved.id });
+    expect(first.awardedAt).toBeDefined();
+
+    db.update(attempts).set({ safety: 0 }).where(eq(attempts.id, saved.id)).run();
+    const after = storage.getProfile(name)!.achievements.find((a) => a.id === "safety_first")!;
+    expect(after).toMatchObject({ unlocked: true, sourceAttemptId: saved.id, awardedAt: first.awardedAt });
   });
 });

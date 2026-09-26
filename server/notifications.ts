@@ -73,8 +73,13 @@ export function listNotifications(playerId: number): Notification[] {
     .all();
 }
 
-export function markRead(id: number) {
-  return db.update(notifications).set({ readAt: Date.now() }).where(eq(notifications.id, id)).returning().get();
+export function markRead(id: number, playerId: number) {
+  return db
+    .update(notifications)
+    .set({ readAt: Date.now() })
+    .where(and(eq(notifications.id, id), eq(notifications.playerId, playerId)))
+    .returning()
+    .get();
 }
 
 /** Сравнить профиль до и после попытки: новые ачивки и новый уровень */

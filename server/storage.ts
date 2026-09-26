@@ -4,6 +4,7 @@ import {
   teams,
   players,
   attempts,
+  achievementAwards,
   challenges,
   challengeCompletions,
   challengeRuleSchema,
@@ -11,6 +12,7 @@ import {
   type ScenarioRow,
   type InsertScenario,
   type Player,
+  type UserRole,
   type Depot,
   type Team,
   type Attempt,
@@ -24,7 +26,7 @@ import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { accessibilityScenario, ACCESSIBILITY_SCENARIO_NAME } from "@shared/scenarios/accessibility";
 import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
-import { evaluateAchievements } from "@shared/achievements";
+import { ACHIEVEMENTS, evaluateAchievements } from "@shared/achievements";
 import { skillProfile, buildInsights, teamMatrix, topMistakes, type AnalyticsRow } from "@shared/analytics";
 import { scenarioDataSchema } from "@shared/scenario";
 import {
@@ -109,6 +111,15 @@ CREATE TABLE IF NOT EXISTS attempts (
   log TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS achievement_awards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id INTEGER NOT NULL,
+  achievement_id TEXT NOT NULL,
+  awarded_at INTEGER NOT NULL,
+  source_attempt_id INTEGER NOT NULL,
+  UNIQUE (player_id, achievement_id)
+);
+CREATE INDEX IF NOT EXISTS achievement_awards_player ON achievement_awards (player_id, awarded_at);
 `);
 
 /** Добавить колонку в уже существующую таблицу (база могла быть создана прошлой версией) */
@@ -120,6 +131,8 @@ function ensureColumn(table: string, column: string, ddl: string, backfill?: str
 }
 ensureColumn("players", "team_id", "INTEGER");
 ensureColumn("players", "xp", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("players", "password_hash", "TEXT");
+ensureColumn("players", "role", "TEXT NOT NULL DEFAULT 'conductor'");
 ensureColumn("attempts", "xp", "INTEGER NOT NULL DEFAULT 0");
 // старые проверочные рейсы получают баллы по текущему правилу
 ensureColumn(
@@ -139,6 +152,8 @@ export interface IStorage {
   listDepots(): Depot[];
   listTeams(): Team[];
   getOrCreatePlayer(name: string): Player;
+  findPlayerByName(name: string): Player | undefined;
+  createAccount(name: string, passwordHash: string, role?: UserRole): Player;
   getProfile(name: string): PlayerProfile | undefined;
   createAttempt(a: InsertAttempt, createdAt?: number): Attempt;
   challengesFor(playerId: number): ChallengeProgress[];
@@ -149,6 +164,10 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  constructor() {
+    this.backfillAchievementAwards();
+  }
+
   listScenarios() {
     return db.select().from(scenarios).orderBy(desc(scenarios.updatedAt)).all();
   }
@@ -201,6 +220,15 @@ export class DatabaseStorage implements IStorage {
     return db.insert(players).values({ name, teamId: firstTeam?.id ?? null }).returning().get();
   }
 
+  findPlayerByName(name: string) {
+    return db.select().from(players).where(eq(players.name, name)).get();
+  }
+
+  createAccount(name: string, passwordHash: string, role: UserRole = "conductor") {
+    const firstTeam = db.select().from(teams).orderBy(teams.id).get();
+    return db.insert(players).values({ name, passwordHash, role, teamId: firstTeam?.id ?? null }).returning().get();
+  }
+
   /** createdAt передаётся только сидом демо-истории; из API попытка всегда создаётся «сейчас» */
   createAttempt(a: InsertAttempt, createdAt = Date.now()) {
     const player = this.getOrCreatePlayer(a.playerName);
@@ -240,6 +268,7 @@ export class DatabaseStorage implements IStorage {
         .run();
     }
     this.awardChallenges(player.id);
+    this.awardAchievements(player.id, row.id, createdAt);
     return row;
   }
 
@@ -273,15 +302,69 @@ export class DatabaseStorage implements IStorage {
     return fresh;
   }
 
-  achievementsFor(playerId: number, rows: Attempt[]) {
+  awardAchievements(playerId: number, sourceAttemptId: number, awardedAt = Date.now()) {
+    const rows = db.select().from(attempts).where(eq(attempts.playerId, playerId)).all();
     const challengesCompleted = db
       .select()
       .from(challengeCompletions)
       .where(eq(challengeCompletions.playerId, playerId))
       .all().length;
-    return evaluateAchievements({
+    const earned = evaluateAchievements({
       attempts: rows.map((r) => ({ ...r, competencies: JSON.parse(r.competencies) })),
       challengesCompleted,
+    });
+    const already = new Set(
+      db.select().from(achievementAwards).where(eq(achievementAwards.playerId, playerId)).all().map((award) => award.achievementId),
+    );
+    for (const achievement of earned) {
+      if (!achievement.unlocked || already.has(achievement.id)) continue;
+      db.insert(achievementAwards)
+        .values({ playerId, achievementId: achievement.id, awardedAt, sourceAttemptId })
+        .run();
+    }
+  }
+
+  /** Одноразовая миграция уже существующей demo-базы: ищем первую попытку, на которой правило стало выполнено. */
+  private backfillAchievementAwards() {
+    if (db.select().from(achievementAwards).get()) return;
+    for (const player of db.select().from(players).all()) {
+      const rows = db.select().from(attempts).where(eq(attempts.playerId, player.id)).orderBy(attempts.createdAt, attempts.id).all();
+      const awarded = new Set<string>();
+      for (let index = 0; index < rows.length; index++) {
+        const prefix = rows.slice(0, index + 1);
+        const earned = evaluateAchievements({
+          attempts: prefix.map((row) => ({ ...row, competencies: JSON.parse(row.competencies) })),
+          challengesCompleted: db.select().from(challengeCompletions).where(eq(challengeCompletions.playerId, player.id)).all().length,
+        });
+        for (const achievement of earned) {
+          if (!achievement.unlocked || awarded.has(achievement.id)) continue;
+          db.insert(achievementAwards)
+            .values({ playerId: player.id, achievementId: achievement.id, awardedAt: prefix.at(-1)!.createdAt, sourceAttemptId: prefix.at(-1)!.id })
+            .run();
+          awarded.add(achievement.id);
+        }
+      }
+    }
+  }
+
+  achievementsFor(playerId: number) {
+    const awarded = new Map(
+      db
+        .select()
+        .from(achievementAwards)
+        .where(eq(achievementAwards.playerId, playerId))
+        .all()
+        .map((award) => [award.achievementId, award]),
+    );
+    return ACHIEVEMENTS.map((achievement) => {
+      const award = awarded.get(achievement.id);
+      return {
+        id: achievement.id,
+        title: achievement.title,
+        description: achievement.description,
+        unlocked: !!award,
+        ...(award && { awardedAt: award.awardedAt, sourceAttemptId: award.sourceAttemptId }),
+      };
     });
   }
 
@@ -295,12 +378,13 @@ export class DatabaseStorage implements IStorage {
   getProfile(name: string): PlayerProfile | undefined {
     const p = db.select().from(players).where(eq(players.name, name)).get();
     if (!p) return undefined;
+    const { passwordHash: _passwordHash, ...publicPlayer } = p;
     const rows = this.listAttempts(name);
     const bestScore = rows.reduce((m, r) => Math.max(m, r.score), 0);
     const now = Date.now();
     const analytics: AnalyticsRow[] = rows.map((r) => ({ competencies: JSON.parse(r.competencies), log: JSON.parse(r.log) }));
     return {
-      ...p,
+      ...publicPlayer,
       level: levelFor(p.xp),
       activePoints: activePoints(rows, now),
       expiring: expiringPoints(rows, now),
@@ -309,7 +393,7 @@ export class DatabaseStorage implements IStorage {
       insights: buildInsights(analytics),
       attempts: rows.length,
       bestScore,
-      achievements: this.achievementsFor(p.id, rows),
+      achievements: this.achievementsFor(p.id),
     };
   }
 

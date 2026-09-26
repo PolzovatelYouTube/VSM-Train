@@ -33,6 +33,8 @@ export const teams = sqliteTable("teams", {
 export const players = sqliteTable("players", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  passwordHash: text("password_hash"),
+  role: text("role").notNull().default("conductor"),
   teamId: integer("team_id"), // null — проводник ещё не закреплён за бригадой
   xp: integer("xp").notNull().default(0), // опыт: за попытки и челленджи, определяет уровень
   trainingPoints: integer("training_points").notNull().default(0),
@@ -55,6 +57,16 @@ export const attempts = sqliteTable("attempts", {
   points: integer("points").notNull().default(0), // баллы практики за попытку (сгорают через POINTS_TTL_DAYS)
   createdAt: integer("created_at").notNull(),
 });
+
+/** Неизменяемый факт первой выдачи достижения игроку. */
+export const achievementAwards = sqliteTable("achievement_awards", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  playerId: integer("player_id").notNull(),
+  achievementId: text("achievement_id").notNull(),
+  awardedAt: integer("awarded_at").notNull(),
+  sourceAttemptId: integer("source_attempt_id").notNull(),
+});
+export type AchievementAward = typeof achievementAwards.$inferSelect;
 
 // Челлендж — ограниченное по времени задание с наградой в опыте.
 // rule — декларативное правило (challengeRuleSchema), прогресс считается по попыткам в окне startsAt..endsAt.
@@ -123,6 +135,9 @@ export type ScenarioRow = typeof scenarios.$inferSelect;
 
 export const insertPlayerSchema = createInsertSchema(players).pick({ name: true });
 export type Player = typeof players.$inferSelect;
+export const USER_ROLES = ["conductor", "supervisor"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+export type PublicPlayer = Omit<Player, "passwordHash">;
 export type Depot = typeof depots.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 
@@ -148,7 +163,6 @@ export type ReplayAction = z.infer<typeof replayActionSchema>;
 
 /** Публичный контракт POST /api/attempts: никаких начисленных клиентом очков. */
 export const submitAttemptSchema = z.object({
-  playerName: z.string().min(1),
   scenarioId: z.number().int(),
   mode: z.enum(["training", "check"]),
   actions: z.array(replayActionSchema).max(1_000),
@@ -177,9 +191,11 @@ export interface Achievement {
   title: string;
   description: string;
   unlocked: boolean;
+  awardedAt?: number;
+  sourceAttemptId?: number;
 }
 
-export interface PlayerProfile extends Player {
+export interface PlayerProfile extends PublicPlayer {
   level: LevelInfo;
   activePoints: number; // несгоревшие баллы практики
   expiring: ExpiringPoints | null;

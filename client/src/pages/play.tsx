@@ -5,7 +5,7 @@ import { Shell } from "@/components/app/Shell";
 import { DebriefCard } from "@/components/app/Debrief";
 import { buildDebrief } from "@shared/analytics";
 import { type MapActor } from "@/components/app/CarMap";
-import { Meter } from "@/components/app/widgets";
+import { Meter, TrainStrip } from "@/components/app/widgets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -138,7 +138,6 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
     if (phase !== "done" || !result || submittedRef.current) return;
     submittedRef.current = true;
     submit.mutate({
-      playerName: player || "Аноним",
       scenarioId: sid,
       mode,
       actions: [
@@ -221,6 +220,17 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
         safety={sim.safety}
         consequence={model.consequence}
         consequenceKey={String(cq?.key ?? 0)}
+      />
+
+      <TrainStrip
+        cars={data.train.cars}
+        selectedId={car.id}
+        badges={badges}
+        onSelect={(id) => {
+          setFollow(false);
+          setCarId(id);
+        }}
+        className="mb-3"
       />
 
       <div className="game-layout">
@@ -317,7 +327,7 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
             </div>
           )}
 
-          <MiniCarMap cars={data.train.cars} car={car} actors={mapActors} badges={badges} onSelect={(id) => { setFollow(false); setCarId(id); }} />
+          <MiniCarMap cars={data.train.cars} car={car} actors={mapActors} />
 
           {phase !== "done" && (
             <Card>

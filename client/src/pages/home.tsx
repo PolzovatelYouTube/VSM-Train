@@ -28,14 +28,14 @@ type HomeMode = "play" | "create";
 const MODE_KEY = "vsm-home-mode";
 
 /** Два входа: «Начать смену» (прохождение) и «Создать сценарий» (конструктор) */
-function ModeSwitch({ mode, onChange }: { mode: HomeMode; onChange: (m: HomeMode) => void }) {
+function ModeSwitch({ mode, onChange, canEdit }: { mode: HomeMode; onChange: (m: HomeMode) => void; canEdit: boolean }) {
   const items: { key: HomeMode; title: string; text: string; icon: typeof Gamepad2 }[] = [
     { key: "play", title: "Начать смену", text: "Пройти рейс в вагоне: пассажиры, диалоги, последствия решений. Тренировка или проверка.", icon: Gamepad2 },
     { key: "create", title: "Создать сценарий", text: "Конструктор: состав, пассажиры, события, ветвления и визуальная сцена. Предпросмотр игры.", icon: Wrench },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 mb-6" role="tablist" aria-label="Режим работы">
-      {items.map(({ key, title, text, icon: Icon }) => {
+      {items.filter((item) => item.key !== "create" || canEdit).map(({ key, title, text, icon: Icon }) => {
         const active = key === mode;
         return (
           <button
@@ -75,8 +75,9 @@ export default function Home() {
   const save = useSaveScenario();
   const del = useDeleteScenario();
   const [, navigate] = useLocation();
-  const { player } = useApp();
-  const [mode, setModeState] = useState<HomeMode>(() => (localStorage.getItem(MODE_KEY) === "create" ? "create" : "play"));
+  const { player, user } = useApp();
+  const canEdit = user?.role === "supervisor";
+  const [mode, setModeState] = useState<HomeMode>(() => (canEdit && localStorage.getItem(MODE_KEY) === "create" ? "create" : "play"));
   const setMode = (m: HomeMode) => {
     setModeState(m);
     localStorage.setItem(MODE_KEY, m);
@@ -96,7 +97,7 @@ export default function Home() {
 
   return (
     <Shell>
-      <ModeSwitch mode={mode} onChange={setMode} />
+      <ModeSwitch mode={mode} onChange={setMode} canEdit={canEdit} />
 
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
