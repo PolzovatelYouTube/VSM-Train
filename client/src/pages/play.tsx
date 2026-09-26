@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useScenario, useSubmitAttempt } from "@/lib/api";
 import { type ScenarioData, type DialogueOption } from "@shared/scenario";
+import type { ReplayAction } from "@shared/schema";
 import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, eventCarType, resetReactionClock, type SimState, type SimResult, type LogEntry } from "@shared/engine";
 import { projectGameScene, newLogEntries, resolveLandscape } from "@shared/visual";
 import { GameStage } from "@/game/GameStage";
@@ -62,6 +63,7 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
   const [result, setResult] = useState<SimResult | null>(null);
   const [loaded, setLoaded] = useState(0);
   const submittedRef = useRef(false);
+  const replayActionsRef = useRef<ReplayAction[]>([]);
   const lastActiveRef = useRef<string | null>(null);
   // Визуальная пауза после выбора/таймаута: симуляция стоит, UI показывает реакцию. На движок не влияет.
   const consequenceRef = useRef<{ entry: LogEntry; until: number; key: number } | null>(null);
@@ -139,19 +141,19 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
       playerName: player || "Аноним",
       scenarioId: sid,
       mode,
-      score: result.score,
-      loyalty: Math.round(result.loyalty),
-      safety: Math.round(result.safety),
-      accuracy: result.accuracy,
-      avgReactionMs: Math.round(result.avgReactionMs),
-      competencies: result.competencies,
-      log: simRef.current.log,
+      actions: [
+        ...replayActionsRef.current,
+        ...simRef.current.log
+          .filter((entry) => entry.optionId !== null)
+          .map((entry) => ({ type: "choice" as const, nodeId: entry.nodeId, choiceId: entry.optionId!, timestampMs: Math.round(entry.t * 1000) })),
+      ].sort((a, b) => a.timestampMs - b.timestampMs),
     });
   }, [phase, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     simRef.current = createSim(data);
     submittedRef.current = false;
+    replayActionsRef.current = [];
     lastActiveRef.current = null;
     consequenceRef.current = null;
     setResult(null);
@@ -308,7 +310,7 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
                 <Zap className="size-3.5" /> Песочница:
               </span>
               {manualEvents.map((e) => (
-                <Button key={e.id} size="sm" variant="outline" className="min-h-11 text-xs" onClick={() => { triggerEvent(simRef.current, data, e.id); setFrame((f) => f + 1); }} data-testid={`button-trigger-${e.id}`}>
+                <Button key={e.id} size="sm" variant="outline" className="min-h-11 text-xs" onClick={() => { replayActionsRef.current.push({ type: "trigger", eventId: e.id, timestampMs: Math.round(simRef.current.t * 1000) }); triggerEvent(simRef.current, data, e.id); setFrame((f) => f + 1); }} data-testid={`button-trigger-${e.id}`}>
                   {e.title}
                 </Button>
               ))}

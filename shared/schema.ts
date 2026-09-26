@@ -126,6 +126,36 @@ export type Player = typeof players.$inferSelect;
 export type Depot = typeof depots.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 
+/**
+ * Действие, присланное клиентом для авторитетного воспроизведения рейса.
+ * timestampMs — виртуальное время симуляции от начала рейса, а не результат
+ * расчёта. Сервер сопоставляет nodeId/choiceId с текущим состоянием движка.
+ */
+export const replayActionSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("choice"),
+    nodeId: z.string().min(1),
+    choiceId: z.string().min(1),
+    timestampMs: z.number().int().min(0),
+  }),
+  z.object({
+    type: z.literal("trigger"),
+    eventId: z.string().min(1),
+    timestampMs: z.number().int().min(0),
+  }),
+]);
+export type ReplayAction = z.infer<typeof replayActionSchema>;
+
+/** Публичный контракт POST /api/attempts: никаких начисленных клиентом очков. */
+export const submitAttemptSchema = z.object({
+  playerName: z.string().min(1),
+  scenarioId: z.number().int(),
+  mode: z.enum(["training", "check"]),
+  actions: z.array(replayActionSchema).max(1_000),
+});
+export type SubmitAttempt = z.infer<typeof submitAttemptSchema>;
+
+/** Внутренний, уже рассчитанный сервером формат для сохранения попытки. */
 export const insertAttemptSchema = z.object({
   playerName: z.string().min(1),
   scenarioId: z.number().int(),

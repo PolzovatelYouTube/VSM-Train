@@ -2,8 +2,9 @@ import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
 import { storage, seedScenarios } from "./storage";
 import { seedStructure, seedChallenges, seedDemoHistory } from "./seed";
-import { insertScenarioSchema, insertAttemptSchema, LEADERBOARD_SCOPES } from "@shared/schema";
+import { insertScenarioSchema, submitAttemptSchema, LEADERBOARD_SCOPES } from "@shared/schema";
 import { buildCar, CAR_TYPES, DEFAULT_ROWS, scenarioDataSchema, type CarType } from "@shared/scenario";
+import { replayAttempt } from "@shared/replay";
 import { z } from "zod";
 import { notifyAll, syncNotifications, listNotifications, markRead, notifyAttemptOutcome } from "./notifications";
 
@@ -76,10 +77,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Попытки, игроки, рейтинг ──
   app.post("/api/attempts", (req, res) => {
     try {
-      const body = insertAttemptSchema.parse(req.body);
+      const body = submitAttemptSchema.parse(req.body);
+      const scenario = storage.getScenario(body.scenarioId);
+      if (!scenario) return res.status(404).json({ message: "Сценарий не найден" });
+      const data = scenarioDataSchema.parse(JSON.parse(scenario.data));
+      const replay = replayAttempt(data, body.mode, body.actions);
+      const result = replay.result;
       const player = storage.getOrCreatePlayer(body.playerName);
       const before = storage.getProfile(body.playerName)!;
-      const row = storage.createAttempt(body);
+      const row = storage.createAttempt({
+        playerName: body.playerName,
+        scenarioId: body.scenarioId,
+        mode: body.mode,
+        score: result.score,
+        loyalty: Math.round(result.loyalty),
+        safety: Math.round(result.safety),
+        accuracy: result.accuracy,
+        avgReactionMs: Math.round(result.avgReactionMs),
+        competencies: result.competencies,
+        log: replay.state.log,
+      });
       notifyAttemptOutcome(player.id, before, storage.getProfile(body.playerName)!);
       res.status(201).json(row);
     } catch (e) {

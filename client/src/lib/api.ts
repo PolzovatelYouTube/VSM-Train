@@ -2,7 +2,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "./queryClient";
 import type { ScenarioData } from "@shared/scenario";
-import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics, Notification } from "@shared/schema";
+import type { SubmitAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics, Notification } from "@shared/schema";
 import { NOTIFICATIONS_POLL_MS } from "@shared/rules";
 
 export interface ScenarioDto {
@@ -58,7 +58,7 @@ export const useDeleteScenario = () =>
 
 export const useSubmitAttempt = () =>
   useMutation({
-    mutationFn: async (body: InsertAttempt) => (await apiRequest("POST", "/api/attempts", body)).json(),
+    mutationFn: async (body: SubmitAttempt) => (await apiRequest("POST", "/api/attempts", body)).json(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
