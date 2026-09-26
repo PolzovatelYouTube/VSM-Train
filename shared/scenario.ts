@@ -137,6 +137,27 @@ export const STEP_LABEL: Record<BehaviorStep["type"], string> = {
   mood: "Изменить настроение",
 };
 
+// ───────────────────────────── Визуальная сцена (необязательно) ─────────────────────────────
+// Только авторские настройки, которые нельзя вывести из данных. Все поля optional:
+// старые сценарии без блока visual работают без миграции (см. shared/visual.ts — значения по умолчанию).
+
+export const LANDSCAPES = ["day", "sunset", "night"] as const;
+export type Landscape = (typeof LANDSCAPES)[number];
+
+export const LANDSCAPE_LABEL: Record<Landscape, string> = { day: "День", sunset: "Закат", night: "Ночь" };
+
+export const scenarioVisualSchema = z.object({
+  landscape: z.enum(LANDSCAPES).optional(),
+  interior: z.string().optional(), // ключ интерьера из реестра ассетов; нет — по классу вагона
+});
+export type ScenarioVisual = z.infer<typeof scenarioVisualSchema>;
+
+export const actorVisualSchema = z.object({
+  preset: z.string().optional(), // ключ пресета спрайта; нет — по роли
+  accent: z.string().optional(), // цвет одежды, #rrggbb
+});
+export type ActorVisual = z.infer<typeof actorVisualSchema>;
+
 export const actorSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -145,6 +166,7 @@ export const actorSchema = z.object({
   spawn: z.object({ carId: z.string(), x: z.number().int(), y: z.number().int() }),
   mood: z.number().min(0).max(100),
   steps: z.array(behaviorStepSchema),
+  visual: actorVisualSchema.optional(),
 });
 export type Actor = z.infer<typeof actorSchema>;
 
@@ -260,6 +282,7 @@ export const scenarioDataSchema = z.object({
   events: z.array(gameEventSchema),
   durationSec: z.number().min(10),
   initial: z.object({ loyalty: z.number(), safety: z.number() }),
+  visual: scenarioVisualSchema.optional(),
 });
 export type ScenarioData = z.infer<typeof scenarioDataSchema>;
 

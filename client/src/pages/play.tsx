@@ -1,22 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, Pause, Play as PlayIcon, RotateCcw, Zap, Gauge, Lightbulb, Eye, Trophy, GraduationCap, ClipboardCheck } from "lucide-react";
+import { Pause, Play as PlayIcon, RotateCcw, Zap, Gauge, Eye, Trophy } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { DebriefCard } from "@/components/app/Debrief";
 import { buildDebrief } from "@shared/analytics";
-import { CarMap, Legend, type MapActor } from "@/components/app/CarMap";
-import { TrainStrip, Meter, Clock, TimerRing, CATEGORY_COLOR } from "@/components/app/widgets";
+import { type MapActor } from "@/components/app/CarMap";
+import { Meter } from "@/components/app/widgets";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/player";
 import { useScenario, useSubmitAttempt } from "@/lib/api";
-import { EVENT_CATEGORY_LABEL, ROLE_STEP_LABEL, CAR_TYPE_LABEL, type ScenarioData } from "@shared/scenario";
-import { PATIENCE_BY_CLASS } from "@shared/rules";
-import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, eventCarType, type SimState, type SimResult } from "@shared/engine";
+import { type ScenarioData, type DialogueOption } from "@shared/scenario";
+import { createSim, tick, chooseOption, triggerEvent, computeResult, findEvent, findNode, visibleOptions, eventCarType, resetReactionClock, type SimState, type SimResult, type LogEntry } from "@shared/engine";
+import { projectGameScene, newLogEntries, resolveLandscape } from "@shared/visual";
+import { GameStage } from "@/game/GameStage";
+import { GameHud } from "@/game/GameHud";
+import { DialogueStage } from "@/game/DialogueStage";
+import { ConsequenceOverlay } from "@/game/ConsequenceOverlay";
+import { MiniCarMap } from "@/game/MiniCarMap";
+import { preloadAssets, sceneAssetUrls } from "@/game/assets";
+import { useReducedMotion, useElementSize, useMediaQuery, OVERLAY_DIALOGUE_QUERY } from "@/game/motion";
 
 type Mode = "training" | "check";
 
@@ -38,9 +44,15 @@ export default function Play() {
   return <Runner key={`${sid}-${mode}`} sid={sid} data={data} mode={mode} scenarioName={row!.name} />;
 }
 
+const CONSEQUENCE_MS = 1300;
+const CONSEQUENCE_MS_REDUCED = 700;
+
 function Runner({ sid, data, mode, scenarioName }: { sid: number; data: ScenarioData; mode: Mode; scenarioName: string }) {
   const { player } = useApp();
   const submit = useSubmitAttempt();
+  const reduced = useReducedMotion();
+  const overlayDialogue = useMediaQuery(OVERLAY_DIALOGUE_QUERY);
+  const [dialogueRef, dialogueSize] = useElementSize<HTMLDivElement>();
   const simRef = useRef<SimState>(createSim(data));
   const [, setFrame] = useState(0);
   const [phase, setPhase] = useState<"idle" | "running" | "paused" | "done">("idle");
@@ -48,11 +60,33 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
   const [carId, setCarId] = useState(data.actors.find((a) => a.role === "conductor")?.spawn.carId ?? data.train.cars[0].id);
   const [follow, setFollow] = useState(true);
   const [result, setResult] = useState<SimResult | null>(null);
+  const [loaded, setLoaded] = useState(0);
   const submittedRef = useRef(false);
   const lastActiveRef = useRef<string | null>(null);
+  // Визуальная пауза после выбора/таймаута: симуляция стоит, UI показывает реакцию. На движок не влияет.
+  const consequenceRef = useRef<{ entry: LogEntry; until: number; key: number } | null>(null);
+  const followRef = useRef(follow);
+  followRef.current = follow;
 
   const isTraining = mode === "training";
   const sim = simRef.current;
+  const landscape = resolveLandscape(data);
+
+  // Предзагрузка ассетов сцены до старта (ошибки не блокируют игру — есть fallback)
+  useEffect(() => {
+    let alive = true;
+    preloadAssets(sceneAssetUrls(landscape), (p) => alive && setLoaded(p)).then(() => alive && setLoaded(1));
+    return () => {
+      alive = false;
+    };
+  }, [landscape]);
+
+  const showConsequence = useCallback(
+    (entry: LogEntry) => {
+      consequenceRef.current = { entry, until: performance.now() + (reduced ? CONSEQUENCE_MS_REDUCED : CONSEQUENCE_MS), key: Date.now() };
+    },
+    [reduced],
+  );
 
   // Игровой цикл на requestAnimationFrame
   useEffect(() => {
@@ -63,18 +97,30 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
       const dt = Math.min(0.1, (now - last) / 1000) * speed;
       last = now;
       const s = simRef.current;
-      tick(s, dt, data, { pauseWhileDialogue: isTraining });
+      const cq = consequenceRef.current;
+      if (cq) {
+        // пока идёт реакция — время рейса и таймер решения стоят
+        if (now >= cq.until) {
+          consequenceRef.current = null;
+          resetReactionClock(s);
+        }
+      } else {
+        const before = s.log.length;
+        tick(s, dt, data, { pauseWhileDialogue: isTraining });
+        const fresh = newLogEntries(before, s);
+        if (fresh.length) showConsequence(fresh[fresh.length - 1]); // таймаут
+      }
       // автослежение за событием
       const key = s.active ? `${s.active.eventId}` : null;
       if (key && key !== lastActiveRef.current) {
         lastActiveRef.current = key;
         const ev = findEvent(data, key);
         const actor = ev?.actorId ? s.actors.find((a) => a.id === ev.actorId) : null;
-        if (follow && actor) setCarId(actor.carId);
+        if (followRef.current && actor) setCarId(actor.carId);
       }
       if (!s.active) lastActiveRef.current = null;
       setFrame((f) => f + 1);
-      if (s.finished) {
+      if (s.finished && !consequenceRef.current) {
         setResult(computeResult(s, data));
         setPhase("done");
         return;
@@ -83,7 +129,7 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, speed, data, isTraining, follow]);
+  }, [phase, speed, data, isTraining, showConsequence]);
 
   // Сохранение результата
   useEffect(() => {
@@ -107,39 +153,55 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
     simRef.current = createSim(data);
     submittedRef.current = false;
     lastActiveRef.current = null;
+    consequenceRef.current = null;
     setResult(null);
     setPhase("idle");
     setFrame((f) => f + 1);
   };
 
-  const car = data.train.cars.find((c) => c.id === carId) ?? data.train.cars[0];
-  const activeEvent = sim.active ? findEvent(data, sim.active.eventId) : null;
-  const activeNode = sim.active ? findNode(data, sim.active.eventId, sim.active.nodeId) : null;
-  const limitSec = sim.active?.limitSec;
-  const timerLeft = limitSec ? Math.max(0, limitSec - (sim.t - (sim.active?.openedAt ?? 0))) : null;
-  const eventCar = sim.active ? eventCarType(sim, data, sim.active.eventId) : null;
-
-  const mapActors: MapActor[] = useMemo(
-    () =>
-      sim.actors.map((ra) => {
-        const def = data.actors.find((a) => a.id === ra.id)!;
-        return {
-          id: ra.id,
-          name: def.name,
-          role: def.role,
-          carId: ra.carId,
-          x: ra.x,
-          y: ra.y,
-          seated: ra.seated,
-          wrongSeat: ra.wrongSeat,
-          mood: ra.mood,
-          bubble: ra.bubble?.text ?? null,
-          alert: !!activeEvent && activeEvent.actorId === ra.id,
-        };
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sim.t, sim.active, data],
+  const choose = useCallback(
+    (o: DialogueOption) => {
+      const s = simRef.current;
+      if (consequenceRef.current || !s.active) return; // защита от двойного выбора
+      const before = s.log.length;
+      chooseOption(s, data, o);
+      const fresh = newLogEntries(before, s);
+      if (fresh.length) showConsequence(fresh[fresh.length - 1]);
+      setFrame((f) => f + 1);
+    },
+    [data, showConsequence],
   );
+
+  const cq = consequenceRef.current;
+  const model = projectGameScene(data, sim, { viewCarId: carId, follow, consequence: cq?.entry ?? null });
+  const car = data.train.cars.find((c) => c.id === model.carId) ?? data.train.cars[0];
+  const activeEvent = sim.active && !cq ? findEvent(data, sim.active.eventId) : null;
+  const activeNode = sim.active && !cq ? findNode(data, sim.active.eventId, sim.active.nodeId) : null;
+  const limitSec = sim.active?.limitSec;
+  const timerLeft = !isTraining && limitSec ? Math.max(0, limitSec - (sim.t - (sim.active?.openedAt ?? 0))) : null;
+  const eventCar = sim.active ? eventCarType(sim, data, sim.active.eventId) : null;
+  const feedback = cq?.entry.optionId
+    ? findNode(data, cq.entry.eventId, cq.entry.nodeId)?.options.find((o) => o.id === cq.entry.optionId)?.feedback
+    : cq
+      ? findNode(data, cq.entry.eventId, cq.entry.nodeId)?.onTimeout?.text
+      : undefined;
+
+  const mapActors: MapActor[] = sim.actors.map((ra) => {
+    const def = data.actors.find((a) => a.id === ra.id)!;
+    return {
+      id: ra.id,
+      name: def.name,
+      role: def.role,
+      carId: ra.carId,
+      x: ra.x,
+      y: ra.y,
+      seated: ra.seated,
+      wrongSeat: ra.wrongSeat,
+      mood: ra.mood,
+      bubble: ra.bubble?.text ?? null,
+      alert: model.focusedActorId === ra.id && model.phase !== "observe",
+    };
+  });
 
   const badges: Record<string, number> = {};
   for (const ra of sim.actors) badges[ra.carId] = (badges[ra.carId] ?? 0) + 1;
@@ -147,158 +209,124 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
 
   return (
     <Shell wide>
-      {/* HUD */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/" data-testid="link-back">
-            <ArrowLeft className="size-4 mr-1" /> Сценарии
-          </Link>
-        </Button>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold truncate">{scenarioName}</div>
-          <div className="text-xs text-muted-foreground">{data.train.name}</div>
-        </div>
-        <Badge variant={isTraining ? "secondary" : "default"} className="gap-1" data-testid="badge-mode">
-          {isTraining ? <GraduationCap className="size-3.5" /> : <ClipboardCheck className="size-3.5" />}
-          {isTraining ? "Тренировка" : "Проверочный рейс"}
-        </Badge>
-        <Clock t={sim.t} total={data.durationSec} />
-        <div className="flex flex-wrap gap-4 ml-auto">
-          <Meter label="Лояльность пассажиров" value={sim.loyalty} kind="loyalty" compact />
-          <Meter label="Рейтинг безопасности" value={sim.safety} kind="safety" compact />
-        </div>
-      </div>
+      <GameHud
+        scenarioName={scenarioName}
+        trainName={data.train.name}
+        training={isTraining}
+        t={sim.t}
+        total={data.durationSec}
+        loyalty={sim.loyalty}
+        safety={sim.safety}
+        consequence={model.consequence}
+        consequenceKey={String(cq?.key ?? 0)}
+      />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-        <section className="space-y-3 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <TrainStrip cars={data.train.cars} selectedId={car.id} onSelect={(id) => { setCarId(id); }} badges={badges} />
-            <div className="ml-auto flex items-center gap-1.5">
-              <Button size="sm" variant={follow ? "secondary" : "ghost"} onClick={() => setFollow((f) => !f)} title="Переключать вагон на событие" data-testid="button-follow">
-                <Eye className="size-4 mr-1" /> Слежение
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))} data-testid="button-speed">
-                <Gauge className="size-4 mr-1" /> <span className="font-mono">×{speed}</span>
+      <div className="game-layout">
+        <GameStage model={model} car={car} className="game-stage" reserveBottom={overlayDialogue && activeEvent ? dialogueSize.h + 16 : 0}>
+          {model.consequence && <ConsequenceOverlay c={model.consequence} feedback={feedback} />}
+          {phase === "idle" && (
+            <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/55 backdrop-blur-[2px]">
+              <div className="g-rise max-w-md space-y-3 rounded-xl bg-card/95 p-4 text-center shadow-2xl sm:p-6">
+                <h2 className="text-lg font-bold">Смена начинается</h2>
+                <p className="text-sm text-muted-foreground">
+                  {isTraining
+                    ? "Тренировка: при событии рейс ставится на паузу, верные ответы подсвечены, есть подсказки. Результат идёт в баллы обучения."
+                    : "Проверочный рейс: без пауз и подсказок. Таймер на каждое решение, фиксируется скорость реакции. Результат идёт в баллы практики."}
+                </p>
+                {loaded < 1 && (
+                  <div className="space-y-1" aria-live="polite">
+                    <Progress value={loaded * 100} className="h-1.5" />
+                    <p className="text-xs text-muted-foreground">Загружаем сцену… {Math.round(loaded * 100)}%</p>
+                  </div>
+                )}
+                <Button size="lg" className="min-h-11" disabled={loaded < 1} onClick={() => setPhase("running")} data-testid="button-start">
+                  <PlayIcon className="mr-1.5 size-4" /> Начать смену
+                </Button>
+              </div>
+            </div>
+          )}
+          {phase === "paused" && (
+            <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/40">
+              <Button size="lg" className="min-h-11" onClick={() => setPhase("running")} data-testid="button-resume-stage">
+                <PlayIcon className="mr-1.5 size-4" /> Продолжить
               </Button>
             </div>
-          </div>
+          )}
+        </GameStage>
 
-          <div className="relative rounded-lg border bg-card/50 p-3 sm:p-4 overflow-x-auto min-h-[260px] sm:min-h-0">
-            <CarMap car={car} actors={mapActors} />
-            {phase === "idle" && (
-              <div className="absolute inset-0 grid place-items-center rounded-lg bg-background/70 backdrop-blur-sm">
-                <div className="text-center space-y-3 p-4 sm:p-6 max-w-md">
-                  <h2 className="text-lg font-bold">Готовы к рейсу?</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {isTraining
-                      ? "Режим тренировки: при событии рейс ставится на паузу, верные ответы подсвечены, есть подсказки. Результат идёт в баллы обучения."
-                      : "Проверочный рейс: без пауз и подсказок. Таймер на каждое решение, фиксируется скорость реакции. Результат идёт в баллы практики."}
-                  </p>
-                  <Button size="lg" onClick={() => setPhase("running")} data-testid="button-start">
-                    <PlayIcon className="size-4 mr-1.5" /> Начать рейс
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="game-dialogue" ref={dialogueRef}>
+          {activeEvent && activeNode ? (
+            <DialogueStage
+              event={activeEvent}
+              node={activeNode}
+              options={visibleOptions(activeNode, sim)}
+              training={isTraining}
+              timerLeft={timerLeft}
+              limitSec={limitSec}
+              locked={!!cq || phase !== "running"}
+              speakerInScene={!!model.speakerId}
+              eventCar={eventCar}
+              onChoose={choose}
+            />
+          ) : phase === "running" && !cq ? (
+            <p className="px-1 text-xs text-muted-foreground lg:hidden" data-testid="text-observe">
+              {sim.feed[sim.feed.length - 1]?.text}
+            </p>
+          ) : null}
+        </div>
 
+        <aside className="game-side space-y-3">
+          {phase === "done" && result && <ResultCard result={result} mode={mode} sid={sid} onRetry={reset} saving={submit.isPending} />}
           {phase === "done" && <DebriefCard items={buildDebrief(data, sim.log)} />}
 
           <div className="flex flex-wrap items-center gap-2">
             {phase === "running" && isTraining && (
-              <Button size="sm" variant="outline" onClick={() => setPhase("paused")} data-testid="button-pause">
-                <Pause className="size-4 mr-1" /> Пауза
+              <Button size="sm" variant="outline" className="min-h-11" onClick={() => setPhase("paused")} data-testid="button-pause">
+                <Pause className="mr-1 size-4" /> Пауза
               </Button>
             )}
             {phase === "paused" && (
-              <Button size="sm" onClick={() => setPhase("running")} data-testid="button-resume">
-                <PlayIcon className="size-4 mr-1" /> Продолжить
+              <Button size="sm" className="min-h-11" onClick={() => setPhase("running")} data-testid="button-resume">
+                <PlayIcon className="mr-1 size-4" /> Продолжить
               </Button>
             )}
             {phase !== "idle" && (
-              <Button size="sm" variant="ghost" onClick={reset} data-testid="button-reset">
-                <RotateCcw className="size-4 mr-1" /> Заново
+              <Button size="sm" variant="ghost" className="min-h-11" onClick={reset} data-testid="button-reset">
+                <RotateCcw className="mr-1 size-4" /> Заново
               </Button>
             )}
-            {isTraining && phase !== "idle" && phase !== "done" && manualEvents.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 ml-auto">
-                <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                  <Zap className="size-3.5" /> Песочница:
-                </span>
-                {manualEvents.map((e) => (
-                  <Button key={e.id} size="sm" variant="outline" className="h-7 text-xs" onClick={() => { triggerEvent(simRef.current, data, e.id); setFrame((f) => f + 1); }} data-testid={`button-trigger-${e.id}`}>
-                    {e.title}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <div className="w-full">
-              <Legend />
-            </div>
+            <Button size="sm" variant={follow ? "secondary" : "ghost"} className="min-h-11" onClick={() => setFollow((f) => !f)} title="Переключать вагон на событие" data-testid="button-follow">
+              <Eye className="mr-1 size-4" /> Слежение
+            </Button>
+            <Button size="sm" variant="ghost" className="min-h-11" onClick={() => setSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))} data-testid="button-speed">
+              <Gauge className="mr-1 size-4" /> <span className="font-mono">×{speed}</span>
+            </Button>
           </div>
-        </section>
+          {isTraining && phase !== "idle" && phase !== "done" && manualEvents.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Zap className="size-3.5" /> Песочница:
+              </span>
+              {manualEvents.map((e) => (
+                <Button key={e.id} size="sm" variant="outline" className="min-h-11 text-xs" onClick={() => { triggerEvent(simRef.current, data, e.id); setFrame((f) => f + 1); }} data-testid={`button-trigger-${e.id}`}>
+                  {e.title}
+                </Button>
+              ))}
+            </div>
+          )}
 
-        <aside className={cn("space-y-4", (activeEvent || phase === "done") && "order-first xl:order-none")}>
-          {phase === "done" && result ? (
-            <ResultCard result={result} mode={mode} sid={sid} onRetry={reset} saving={submit.isPending} />
-          ) : activeEvent && activeNode ? (
-            <Card className="border-[hsl(var(--danger))]/40 shadow-lg" data-testid="card-dialogue">
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Badge className={cn("border-0 mb-2", CATEGORY_COLOR[activeEvent.category])}>{EVENT_CATEGORY_LABEL[activeEvent.category]}</Badge>
-                    <CardTitle className="text-base leading-snug">{activeEvent.title}</CardTitle>
-                    {eventCar && PATIENCE_BY_CLASS[eventCar].timer < 1 && (
-                      <p className="mt-1 text-xs text-muted-foreground" data-testid="text-patience">
-                        {CAR_TYPE_LABEL[eventCar]}: пассажир ждёт меньше, потеря лояльности ×{PATIENCE_BY_CLASS[eventCar].loyaltyLoss}
-                      </p>
-                    )}
-                  </div>
-                  {!isTraining && timerLeft !== null && limitSec && <TimerRing left={timerLeft} total={limitSec} />}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-md bg-muted/60 p-3">
-                  <div className="text-xs text-muted-foreground mb-1">{activeNode.speaker}</div>
-                  <p className="text-sm leading-relaxed" data-testid="text-dialogue">{activeNode.text}</p>
-                </div>
-                <div className="space-y-2">
-                  {visibleOptions(activeNode, sim).map((o, i) => (
-                    <button
-                      key={o.id}
-                      onClick={() => { chooseOption(simRef.current, data, o); setFrame((f) => f + 1); }}
-                      data-testid={`button-option-${o.id}`}
-                      className={cn(
-                        "w-full text-left rounded-md border px-3 py-2.5 text-sm transition-colors hover:bg-accent hover:border-primary/40",
-                        isTraining && o.correct && "border-[hsl(var(--safety))]/60 bg-[hsl(var(--safety))]/5",
-                      )}
-                    >
-                      <span className="font-mono text-xs text-muted-foreground mr-2">{i + 1}</span>
-                      {o.text}
-                      {isTraining && o.step && (
-                        <Badge variant="outline" className="ml-2 text-[10px] px-1.5 align-middle">{ROLE_STEP_LABEL[o.step]}</Badge>
-                      )}
-                      {isTraining && o.hint && o.correct && (
-                        <span className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
-                          <Lightbulb className="size-3.5 shrink-0 mt-0.5 text-[hsl(var(--loyalty))]" /> {o.hint}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {isTraining && <p className="text-xs text-muted-foreground">Верный вариант подсвечен зелёным. В проверочном рейсе подсказок не будет.</p>}
-              </CardContent>
-            </Card>
-          ) : (
+          <MiniCarMap cars={data.train.cars} car={car} actors={mapActors} badges={badges} onSelect={(id) => { setFollow(false); setCarId(id); }} />
+
+          {phase !== "done" && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Журнал рейса</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1.5 text-sm" data-testid="list-feed">
-                  {[...sim.feed].reverse().slice(0, 10).map((f, i) => (
+                  {[...sim.feed].reverse().slice(0, 8).map((f, i) => (
                     <li key={i} className="flex gap-2">
-                      <span className="font-mono text-xs text-muted-foreground tabular pt-0.5 w-10 shrink-0">
+                      <span className="w-10 shrink-0 pt-0.5 font-mono text-xs tabular text-muted-foreground">
                         {Math.floor(f.t / 60)}:{Math.floor(f.t % 60).toString().padStart(2, "0")}
                       </span>
                       <span className={cn(f.kind === "warn" && "text-[hsl(var(--loyalty))]", f.kind === "bad" && "text-[hsl(var(--danger))]", f.kind === "good" && "text-[hsl(var(--safety))]")}>
@@ -307,28 +335,6 @@ function Runner({ sid, data, mode, scenarioName }: { sid: number; data: Scenario
                     </li>
                   ))}
                 </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {phase !== "done" && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Пассажиры в вагоне {car.number}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {sim.actors.filter((a) => a.carId === car.id).map((ra) => {
-                  const def = data.actors.find((a) => a.id === ra.id)!;
-                  return (
-                    <div key={ra.id} className="flex items-center gap-2" data-testid={`row-actor-${ra.id}`}>
-                      <span className="truncate">{def.name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {ra.path.length ? "идёт" : ra.seated ? (ra.wrongSeat ? "чужое место" : "сидит") : ra.done ? "стоит" : "ждёт"}
-                      </span>
-                      {def.role !== "conductor" && <span className="font-mono text-xs tabular w-7 text-right">{ra.mood}</span>}
-                    </div>
-                  );
-                })}
               </CardContent>
             </Card>
           )}

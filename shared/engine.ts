@@ -553,6 +553,15 @@ export function timeoutDialogue(state: SimState, data: ScenarioData) {
   else state.active = null;
 }
 
+/**
+ * Перезапустить отсчёт реакции открытого узла (Date.now()).
+ * Нужен визуальному слою: пока показывается реакция на выбор, симуляция стоит,
+ * и эта пауза не должна засчитываться игроку в время реакции следующего решения.
+ */
+export function resetReactionClock(state: SimState, wallNow = Date.now()) {
+  if (state.active) state.active.wallOpenedAt = wallNow;
+}
+
 const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 // ───────────────────────────── Итоги ─────────────────────────────

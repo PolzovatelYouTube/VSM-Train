@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Plus, Pencil, GraduationCap, ClipboardCheck, Trash2, TrainFront, Users, Zap, Trophy } from "lucide-react";
+import { Plus, Pencil, GraduationCap, ClipboardCheck, Trash2, TrainFront, Users, Zap, Trophy, Wrench, Gamepad2, Eye } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Shell } from "@/components/app/Shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,51 @@ function emptyScenario(): ScenarioData {
   };
 }
 
+type HomeMode = "play" | "create";
+const MODE_KEY = "vsm-home-mode";
+
+/** Два входа: «Начать смену» (прохождение) и «Создать сценарий» (конструктор) */
+function ModeSwitch({ mode, onChange }: { mode: HomeMode; onChange: (m: HomeMode) => void }) {
+  const items: { key: HomeMode; title: string; text: string; icon: typeof Gamepad2 }[] = [
+    { key: "play", title: "Начать смену", text: "Пройти рейс в вагоне: пассажиры, диалоги, последствия решений. Тренировка или проверка.", icon: Gamepad2 },
+    { key: "create", title: "Создать сценарий", text: "Конструктор: состав, пассажиры, события, ветвления и визуальная сцена. Предпросмотр игры.", icon: Wrench },
+  ];
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 mb-6" role="tablist" aria-label="Режим работы">
+      {items.map(({ key, title, text, icon: Icon }) => {
+        const active = key === mode;
+        return (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(key)}
+            data-testid={`button-mode-${key}`}
+            className={cn(
+              "group relative overflow-hidden rounded-xl border p-5 text-left min-h-[44px] transition-colors",
+              active
+                ? key === "play"
+                  ? "border-primary bg-primary text-primary-foreground shadow-lg"
+                  : "border-foreground/80 bg-foreground text-background shadow-lg"
+                : "bg-card hover:bg-accent",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <span className={cn("grid place-items-center size-11 shrink-0 rounded-lg", active ? "bg-white/15" : "bg-muted")}>
+                <Icon className="size-5" />
+              </span>
+              <span>
+                <span className="block text-lg font-bold tracking-tight">{title}</span>
+                <span className={cn("block text-sm mt-0.5", active ? "opacity-85" : "text-muted-foreground")}>{text}</span>
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Home() {
   const { data: scenarios, isLoading } = useScenarios();
   const { data: board } = useLeaderboard();
@@ -29,6 +76,11 @@ export default function Home() {
   const del = useDeleteScenario();
   const [, navigate] = useLocation();
   const { player } = useApp();
+  const [mode, setModeState] = useState<HomeMode>(() => (localStorage.getItem(MODE_KEY) === "create" ? "create" : "play"));
+  const setMode = (m: HomeMode) => {
+    setModeState(m);
+    localStorage.setItem(MODE_KEY, m);
+  };
 
   const create = async () => {
     const s = await save.mutateAsync({
@@ -44,17 +96,22 @@ export default function Home() {
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <ModeSwitch mode={mode} onChange={setMode} />
+
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Сценарии</h1>
+          <h1 className="text-xl font-bold tracking-tight">{mode === "play" ? "Выберите смену" : "Мои сценарии"}</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            Песочница для подготовки к хакатону: собирайте состав, расставляйте пассажиров, задавайте им поведение и
-            нештатные события, затем проходите рейс в режиме тренировки или проверки.
+            {mode === "play"
+              ? "Тренировка — с паузой на диалогах и подсказками. Проверка — таймер на каждое решение, результат идёт в рейтинг."
+              : "Собирайте состав, расставляйте пассажиров, задавайте поведение и нештатные события, настраивайте визуальную сцену."}
           </p>
         </div>
-        <Button onClick={create} disabled={save.isPending} data-testid="button-create-scenario">
-          <Plus className="size-4 mr-1.5" /> Новый сценарий
-        </Button>
+        {mode === "create" && (
+          <Button onClick={create} disabled={save.isPending} className="min-h-11" data-testid="button-create-scenario">
+            <Plus className="size-4 mr-1.5" /> Новый сценарий
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px] items-start">
@@ -85,40 +142,52 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" asChild data-testid={`button-train-${s.id}`}>
-                    <Link href={`/play/${s.id}/training`}>
-                      <GraduationCap className="size-4 mr-1" /> Тренировка
-                    </Link>
-                  </Button>
-                  <Button size="sm" variant="secondary" asChild data-testid={`button-check-${s.id}`}>
-                    <Link href={`/play/${s.id}/check`}>
-                      <ClipboardCheck className="size-4 mr-1" /> Проверка
-                    </Link>
-                  </Button>
-                  <Button size="sm" variant="outline" asChild data-testid={`button-edit-${s.id}`}>
-                    <Link href={`/editor/${s.id}`}>
-                      <Pencil className="size-4 mr-1" /> Редактор
-                    </Link>
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="ml-auto text-muted-foreground hover:text-destructive"
-                    aria-label={`Удалить сценарий «${s.name}»`}
-                    title="Удалить сценарий"
-                    disabled={del.isPending}
-                    onClick={() => remove(s)}
-                    data-testid={`button-delete-${s.id}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {mode === "play" ? (
+                    <>
+                      <Button className="min-h-11 flex-1" asChild data-testid={`button-train-${s.id}`}>
+                        <Link href={`/play/${s.id}/training`}>
+                          <GraduationCap className="size-4 mr-1" /> Тренировка
+                        </Link>
+                      </Button>
+                      <Button className="min-h-11 flex-1" variant="secondary" asChild data-testid={`button-check-${s.id}`}>
+                        <Link href={`/play/${s.id}/check`}>
+                          <ClipboardCheck className="size-4 mr-1" /> Проверка
+                        </Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button className="min-h-11" asChild data-testid={`button-edit-${s.id}`}>
+                        <Link href={`/editor/${s.id}`}>
+                          <Pencil className="size-4 mr-1" /> Редактор
+                        </Link>
+                      </Button>
+                      <Button className="min-h-11" variant="outline" asChild data-testid={`button-preview-${s.id}`}>
+                        <Link href={`/play/${s.id}/training`}>
+                          <Eye className="size-4 mr-1" /> Предпросмотр
+                        </Link>
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="ml-auto size-11 text-muted-foreground hover:text-destructive"
+                        aria-label={`Удалить сценарий «${s.name}»`}
+                        title="Удалить сценарий"
+                        disabled={del.isPending}
+                        onClick={() => remove(s)}
+                        data-testid={`button-delete-${s.id}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
           {scenarios && scenarios.length === 0 && (
             <div className="sm:col-span-2 rounded-lg border border-dashed p-10 text-center text-muted-foreground">
-              Пока нет сценариев. Создайте первый.
+              {mode === "play" ? "Пока нет сценариев. Переключитесь в «Создать сценарий»." : "Пока нет сценариев. Создайте первый."}
             </div>
           )}
         </section>
