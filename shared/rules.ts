@@ -128,6 +128,8 @@ export const SKILL_THRESHOLDS = {
   speed: 60,
   protocol: 70,
   roleModel: 70,
+  prioritization: 70,
+  situational_awareness: 70,
 };
 
 /** Навыки, без которых проводник не допускается к самостоятельной работе (страница руководителя) */

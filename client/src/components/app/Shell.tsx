@@ -22,7 +22,7 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
       <header className="border-b border-border bg-card/70 backdrop-blur sticky top-0 z-30">
         <div className={cn("mx-auto flex items-center gap-4 px-4 h-14", wide ? "max-w-none" : "max-w-6xl")}>
           <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight" data-testid="link-home">
-            <Logo />
+            <Logo size={40} />
             <span>
               ВСМ <span className="text-muted-foreground font-medium">Тренажёр</span>
             </span>

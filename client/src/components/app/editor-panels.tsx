@@ -22,6 +22,8 @@ import {
   CAR_TYPES,
   CAR_TYPE_LABEL,
   DEFAULT_ROWS,
+  ACCESSIBILITY_NEEDS,
+  SERVICE_ENTITLEMENTS,
   aisleRow,
   buildCar,
   uid,
@@ -56,6 +58,16 @@ const Field = ({ label, children, className }: { label: string; children: React.
     {children}
   </div>
 );
+
+const ACCESSIBILITY_NEED_LABEL = { hearing: "Слух", vision: "Зрение", wheelchair: "Коляска", mobility: "Мобильность" } as const;
+const CAPABILITY_LABEL = {
+  accessibleToilet: "Доступный санузел", wheelchairStorage: "Место для коляски", writtenCommunication: "Письменный канал",
+  visualInformation: "Визуальная информация", quietArea: "Тихая зона", babyCareSpace: "Место для ухода",
+} as const;
+const ENTITLEMENT_LABEL = {
+  mealDelivery: "Доставка питания", mobilityAssistance: "Помощь с перемещением", writtenCommunication: "Письменный канал",
+  verbalOrientation: "Устная ориентация", quietArea: "Тихая зона", babyCareAlternative: "Альтернатива для ухода",
+} as const;
 
 const NumberInput = ({
   value,
@@ -191,6 +203,22 @@ function ActorInspector({
           <Slider value={[actor.mood]} min={0} max={100} step={5} onValueChange={([v]) => upd((a) => (a.mood = v))} className="pt-2" />
         </Field>
       </div>
+
+      {actor.role !== "conductor" && (
+        <Field label="Потребности в доступности">
+          <div className="flex flex-wrap gap-1.5">
+            {ACCESSIBILITY_NEEDS.map((need) => {
+              const selected = actor.accessibilityNeeds?.includes(need) ?? false;
+              return <Button key={need} size="sm" type="button" variant={selected ? "default" : "outline"} className="h-7 text-xs"
+                onClick={() => upd((a) => {
+                  const current = a.accessibilityNeeds ?? [];
+                  a.accessibilityNeeds = selected ? current.filter((x) => x !== need) : [...current, need];
+                  if (!a.accessibilityNeeds.length) delete a.accessibilityNeeds;
+                })}>{ACCESSIBILITY_NEED_LABEL[need]}</Button>;
+            })}
+          </div>
+        </Field>
+      )}
 
       <div className="rounded-md border p-3 space-y-2">
         <div className="flex items-center justify-between text-xs">
@@ -498,6 +526,79 @@ function EventEditor({ data, mutate, ev, onDelete }: { data: ScenarioData; mutat
         <Input value={ev.title} onChange={(e) => upd((x) => (x.title = e.target.value))} className="h-8" data-testid="input-event-title" />
       </Field>
       <div className="grid grid-cols-2 gap-3">
+        <Field label="Срочность (для оценки)">
+          <Select value={ev.urgency ?? "routine"} onValueChange={(v) => upd((x) => { x.urgency = v as GameEvent["urgency"]; })}>
+            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="routine">Обычная</SelectItem><SelectItem value="urgent">Срочная</SelectItem><SelectItem value="critical">Критическая</SelectItem></SelectContent>
+          </Select>
+        </Field>
+        <Field label="Окно ответа, сек">
+          <NumberInput value={ev.responseWindowSec ?? 0} min={0} onChange={(v) => upd((x) => { x.responseWindowSec = v > 0 ? v : undefined; })} />
+        </Field>
+      </div>
+      <Field label="Исходная тяжесть, 0–5 (для оценки)">
+        <NumberInput value={ev.severity ?? 1} min={0} max={5} onChange={(v) => upd((x) => { x.severity = Math.max(0, Math.min(5, v)); })} />
+      </Field>
+      <details className="text-xs">
+        <summary className="cursor-pointer">Изменения риска по времени и контексту</summary>
+        <p className="mt-2 text-muted-foreground">Срабатывает первое подходящее правило; специфичные условия ставьте выше. Время — от появления ситуации.</p>
+        <div className="mt-2 space-y-3">
+          {(ev.priorityRules ?? []).map((rule, i) => <div key={i} className="rounded border p-2 space-y-2">
+            <Field label="Через сколько секунд"><NumberInput value={rule.afterSec ?? 0} min={0} onChange={(v) => upd((x) => { x.priorityRules![i].afterSec = Math.max(0, v); })} /></Field>
+            <ConditionEditor value={rule.if} onChange={(c) => upd((x) => { x.priorityRules![i].if = c; })} />
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Тяжесть, 0–5"><NumberInput value={rule.severity} min={0} max={5} onChange={(v) => upd((x) => { x.priorityRules![i].severity = Math.max(0, Math.min(5, v)); })} /></Field>
+              <Field label="Окно ответа, сек"><NumberInput value={rule.responseWindowSec} min={1} onChange={(v) => upd((x) => { x.priorityRules![i].responseWindowSec = Math.max(1, v); })} /></Field>
+            </div>
+            <Select value={rule.urgency} onValueChange={(v) => upd((x) => { x.priorityRules![i].urgency = v as typeof rule.urgency; })}>
+              <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="routine">Обычная</SelectItem><SelectItem value="urgent">Срочная</SelectItem><SelectItem value="critical">Критическая</SelectItem></SelectContent>
+            </Select>
+            <Textarea value={rule.text} placeholder="Наблюдаемые признаки" onChange={(e) => upd((x) => { x.priorityRules![i].text = e.target.value; })} />
+            <Button size="sm" variant="ghost" disabled={i === 0} onClick={() => upd((x) => { const rules = x.priorityRules!; [rules[i - 1], rules[i]] = [rules[i], rules[i - 1]]; })}>Выше</Button>
+            <Button size="sm" variant="ghost" onClick={() => upd((x) => { x.priorityRules!.splice(i, 1); })}>Удалить стадию</Button>
+          </div>)}
+          <Button size="sm" variant="outline" onClick={() => upd((x) => { (x.priorityRules ??= []).push({ afterSec: 10, severity: 3, urgency: "urgent", responseWindowSec: 10, text: "" }); })}>Добавить стадию</Button>
+        </div>
+      </details>
+      <Field label="Вагон ситуации">
+        <p className="text-xs text-muted-foreground">Игрок видит признаки и время ожидания; срочность и тяжесть используются для оценки.</p>
+        <Select value={ev.location?.carId ?? "actor"} onValueChange={(v) => upd((x) => { x.location = v === "actor" ? undefined : { carId: v }; })}>
+          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="actor">По положению пассажира / рация</SelectItem>{data.train.cars.map((c) => <SelectItem key={c.id} value={c.id}>Вагон {c.number}</SelectItem>)}</SelectContent>
+        </Select>
+      </Field>
+      <details className="text-xs">
+        <summary className="cursor-pointer">Эскалация ситуации</summary>
+        <div className="mt-2 space-y-2">
+          <label className="flex items-center gap-2"><Switch checked={!!ev.escalation} onCheckedChange={(v) => upd((x) => { x.escalation = v ? { afterSec: 30, effects: { loyalty: -3, safety: 0 } } : undefined; })} />Ухудшение, если ситуация не решена</label>
+          {ev.escalation && <>
+            <Field label="Через сколько секунд от появления"><NumberInput value={ev.escalation.afterSec} min={1} onChange={(v) => upd((x) => { x.escalation!.afterSec = Math.max(1, v); })} /></Field>
+            <Input value={ev.escalation.text ?? ""} placeholder="Наблюдаемые признаки ухудшения" onChange={(e) => upd((x) => { x.escalation!.text = e.target.value; })} />
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Лояльность"><NumberInput value={ev.escalation.effects?.loyalty ?? 0} onChange={(v) => upd((x) => { x.escalation!.effects = { loyalty: v, safety: x.escalation!.effects?.safety ?? 0 }; })} /></Field>
+              <Field label="Безопасность"><NumberInput value={ev.escalation.effects?.safety ?? 0} onChange={(v) => upd((x) => { x.escalation!.effects = { loyalty: x.escalation!.effects?.loyalty ?? 0, safety: v }; })} /></Field>
+            </div>
+            <Select value={ev.escalation.nextEvent ?? "stay"} onValueChange={(v) => upd((x) => { x.escalation!.nextEvent = v === "stay" ? undefined : v; })}>
+              <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="stay">Оставить обращение открытым</SelectItem>{data.events.filter((e) => e.id !== ev.id).map((e) => <SelectItem key={e.id} value={e.id}>{e.title}</SelectItem>)}</SelectContent>
+            </Select>
+          </>}
+        </div>
+      </details>
+      <Field label="Материал, требующий подтверждения">
+        <Textarea value={ev.contentTodo ?? ""} onChange={(e) => upd((x) => { x.contentTodo = e.target.value || undefined; })} className="text-xs" placeholder="TODO по методике (не нормативное правило)" />
+      </Field>
+      <details className="text-xs">
+        <summary className="cursor-pointer">Контекст для разбора</summary>
+        <div className="mt-2 space-y-2">
+          {(ev.context ?? []).map((c, i) => <div key={i} className="flex flex-wrap gap-1">
+            <Input value={c.flag} aria-label="Флаг контекста" className="h-7 flex-1 min-w-24" onChange={(e) => upd((x) => { x.context![i].flag = e.target.value; })} />
+            <Input value={c.label} aria-label="Описание контекста" className="h-7 flex-1 min-w-24" onChange={(e) => upd((x) => { x.context![i].label = e.target.value; })} />
+            <Button size="icon" variant="ghost" className="size-7" aria-label="Удалить контекст" onClick={() => upd((x) => { x.context!.splice(i, 1); })}><X className="size-3.5" /></Button>
+          </div>)}
+          <Button size="sm" variant="ghost" onClick={() => upd((x) => { x.context = [...(x.context ?? []), { flag: "context_known", label: "Контекст уточнён" }]; })}>Добавить контекст</Button>
+        </div>
+      </details>
+      <div className="grid grid-cols-2 gap-3">
         <Field label="Категория">
           <Select value={ev.category} onValueChange={(v) => upd((x) => (x.category = v as GameEvent["category"]))}>
             <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
@@ -596,7 +697,14 @@ function NodeEditor({ ev, node, index, upd }: { ev: GameEvent; node: DialogueNod
           onClick={() =>
             upd((e) => {
               e.nodes = e.nodes.filter((x) => x.id !== node.id);
-              e.nodes.forEach((x) => x.options.forEach((o) => { if (o.next === node.id) o.next = null; }));
+              e.nodes.forEach((x) => {
+                if (x.next === node.id) x.next = null;
+                if (x.onTimeout?.next === node.id) x.onTimeout.next = null;
+                x.options.forEach((o) => {
+                  if (o.next === node.id) o.next = null;
+                  o.nextIf?.forEach((branch) => { if (branch.next === node.id) branch.next = null; });
+                });
+              });
               if (e.startNode === node.id) e.startNode = e.nodes[0].id;
             })
           }
@@ -611,7 +719,16 @@ function NodeEditor({ ev, node, index, upd }: { ev: GameEvent; node: DialogueNod
         </div>
       </div>
       <Textarea value={node.text} onChange={(e) => un((n) => (n.text = e.target.value))} className="text-sm min-h-16" placeholder="Реплика / описание ситуации" />
-      <div className="space-y-2">
+      <Select value={node.kind ?? "decision"} onValueChange={(v) => un((n) => {
+        n.kind = v as DialogueNode["kind"];
+        if (v === "information") { n.next = n.options[0]?.next ?? null; n.set = n.options[0]?.set; n.options = []; delete n.timerSec; delete n.onTimeout; }
+      })}>
+        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="decision">Решение</SelectItem><SelectItem value="information">Информация (не оценивается)</SelectItem></SelectContent>
+      </Select>
+      {node.kind === "information" ? (
+        <NodeSelect ev={ev} value={node.next ?? null} exclude={node.id} onChange={(v) => un((n) => { n.next = v; })} />
+      ) : <div className="space-y-2">
+        {node.options.length < 2 && <p className="text-xs text-amber-600">Нужны минимум два содержательных действия. При одном доступном варианте игрок увидит «Продолжить» без оценки.</p>}
         {node.options.map((o, oi) => (
           <div key={o.id} className="rounded border border-dashed p-2 space-y-2" data-testid={`option-${o.id}`}>
             <div className="flex gap-2">
@@ -655,8 +772,8 @@ function NodeEditor({ ev, node, index, upd }: { ev: GameEvent; node: DialogueNod
         <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => un((n) => n.options.push({ id: uid("o_"), text: "", next: null, effects: { loyalty: 0, safety: 0 } }))}>
           <Plus className="size-3.5 mr-1" /> Вариант ответа
         </Button>
-      </div>
-      <TimeoutEditor ev={ev} node={node} un={un} />
+      </div>}
+      {node.kind !== "information" && <TimeoutEditor ev={ev} node={node} un={un} />}
     </div>
   );
 }
@@ -679,11 +796,29 @@ function NodeSelect({ ev, value, onChange, exclude }: { ev: GameEvent; value: st
 
 function OptionLogic({ ev, node, option: o, onChange }: { ev: GameEvent; node: DialogueNode; option: DialogueOption; onChange: (fn: (o: DialogueOption) => void) => void }) {
   const flags = Object.entries(o.set ?? {});
-  const count = (o.step ? 1 : 0) + flags.length + (o.if ? 1 : 0) + (o.nextIf?.length ?? 0);
+  const count = (o.step ? 1 : 0) + flags.length + (o.if ? 1 : 0) + (o.nextIf?.length ?? 0) + (o.outcomes?.length ?? 0);
   return (
     <details className="text-xs" data-testid={`logic-${o.id}`}>
       <summary className="cursor-pointer text-muted-foreground select-none">Логика варианта{count ? ` · ${count}` : ""}</summary>
       <div className="mt-2 space-y-2.5">
+        <Field label="Стоимость действия, секунд бюджета решения (0 — без стоимости)">
+          <NumberInput value={o.timeCostSec ?? 0} min={0} onChange={(v) => onChange((x) => { x.timeCostSec = v > 0 ? v : undefined; })} className="h-7" />
+        </Field>
+        <Field label="Контекстные результаты (первый сработавший, иначе базовая оценка)">
+          <div className="space-y-2">
+            {(o.outcomes ?? []).map((outcome, i) => <div key={i} className="border rounded p-2 space-y-2">
+              <ConditionEditor value={outcome.if} allowEmpty={false} onChange={(c) => onChange((x) => { if (c) x.outcomes![i].if = c; })} />
+              <label className="flex items-center gap-2"><Switch checked={outcome.correct} onCheckedChange={(v) => onChange((x) => { x.outcomes![i].correct = v; })} /> Обоснован в этом контексте</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Лояльность"><NumberInput value={outcome.effects.loyalty} onChange={(v) => onChange((x) => { x.outcomes![i].effects.loyalty = v; })} className="h-7" /></Field>
+                <Field label="Безопасность"><NumberInput value={outcome.effects.safety} onChange={(v) => onChange((x) => { x.outcomes![i].effects.safety = v; })} className="h-7" /></Field>
+              </div>
+              <Textarea value={outcome.feedback} aria-label="Пояснение контекстного результата" onChange={(e) => onChange((x) => { x.outcomes![i].feedback = e.target.value; })} className="text-xs" />
+              <Button size="sm" variant="ghost" onClick={() => onChange((x) => { x.outcomes!.splice(i, 1); if (!x.outcomes!.length) delete x.outcomes; })}>Удалить результат</Button>
+            </div>)}
+            <Button size="sm" variant="ghost" onClick={() => onChange((x) => { x.outcomes = [...(x.outcomes ?? []), { if: { flag: "context_known" }, correct: false, effects: { ...x.effects }, feedback: "" }]; })}>Добавить контекстный результат</Button>
+          </div>
+        </Field>
         <Field label="Шаг модели">
           <Select value={o.step ?? "none"} onValueChange={(v) => onChange((x) => { if (v === "none") delete x.step; else x.step = v as DialogueOption["step"]; })}>
             <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -888,6 +1023,11 @@ export function TrainPanel({
         <Field label="Описание">
           <Textarea value={meta.description} onChange={(e) => setMeta({ ...meta, description: e.target.value })} className="text-sm min-h-16" />
         </Field>
+        <Field label="Развитие ситуаций">
+          <Select value={data.gameplay ?? "concurrent"} onValueChange={(v) => mutate((d) => { d.gameplay = v as ScenarioData["gameplay"]; })}>
+            <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="concurrent">Одновременно, время идёт</SelectItem><SelectItem value="sequential">По очереди (прежний режим)</SelectItem></SelectContent>
+          </Select>
+        </Field>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Сложность">
             <Select value={String(meta.difficulty)} onValueChange={(v) => setMeta({ ...meta, difficulty: Number(v) })}>
@@ -914,22 +1054,47 @@ export function TrainPanel({
         </div>
       </div>
       <Separator />
+      <details className="rounded-md border p-3 text-xs">
+        <summary className="cursor-pointer font-medium">Доступные сервисы рейса</summary>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {SERVICE_ENTITLEMENTS.map((item) => {
+            const selected = data.serviceEntitlements?.[item] ?? false;
+            return <Button key={item} size="sm" type="button" variant={selected ? "default" : "outline"} className="h-7 text-xs"
+              onClick={() => mutate((d) => {
+                d.serviceEntitlements = { ...d.serviceEntitlements, [item]: !selected };
+                if (!d.serviceEntitlements[item]) delete d.serviceEntitlements[item];
+                if (!Object.keys(d.serviceEntitlements).length) delete d.serviceEntitlements;
+              })}>{ENTITLEMENT_LABEL[item]}</Button>;
+          })}
+        </div>
+      </details>
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">Вагоны · {data.train.cars.length}</span>
       </div>
       <div className="space-y-1.5">
-        {data.train.cars.map((c) => (
-          <div key={c.id} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm">
+        {data.train.cars.map((c) => <div key={c.id} className="rounded-md border px-2.5 py-2 text-sm">
+          <div className="flex items-center gap-2">
             <button className="flex-1 text-left" onClick={() => onSelectCar(c.id)} data-testid={`button-focus-car-${c.number}`}>
-              <span className="font-mono font-semibold mr-2">{c.number}</span>
-              {CAR_TYPE_LABEL[c.type]}
+              <span className="font-mono font-semibold mr-2">{c.number}</span>{CAR_TYPE_LABEL[c.type]}
               <span className="text-muted-foreground text-xs ml-2">{c.cells.filter((x) => x.kind === "seat").length} мест</span>
             </button>
-            <Button size="icon" variant="ghost" className="size-7 text-muted-foreground" disabled={data.train.cars.length === 1} aria-label="Удалить вагон" onClick={() => removeCar(c.id)}>
-              <Trash2 className="size-3.5" />
-            </Button>
+            <Button size="icon" variant="ghost" className="size-7 text-muted-foreground" disabled={data.train.cars.length === 1} aria-label="Удалить вагон" onClick={() => removeCar(c.id)}><Trash2 className="size-3.5" /></Button>
           </div>
-        ))}
+          <details className="mt-2 text-xs"><summary className="cursor-pointer text-muted-foreground">Ресурсы вагона</summary>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <Field label="Свободные места"><NumberInput value={c.availableSeats ?? 0} min={0} onChange={(n) => mutate((d) => { d.train.cars.find((x) => x.id === c.id)!.availableSeats = n; })} /></Field>
+              <div className="col-span-2 flex flex-wrap gap-1.5">{(Object.keys(CAPABILITY_LABEL) as (keyof typeof CAPABILITY_LABEL)[]).map((item) => {
+                const selected = c.capabilities?.[item] ?? false;
+                return <Button key={item} size="sm" type="button" variant={selected ? "default" : "outline"} className="h-7 text-xs" onClick={() => mutate((d) => {
+                  const target = d.train.cars.find((x) => x.id === c.id)!;
+                  target.capabilities = { ...target.capabilities, [item]: !selected };
+                  if (!target.capabilities[item]) delete target.capabilities[item];
+                  if (!Object.keys(target.capabilities).length) delete target.capabilities;
+                })}>{CAPABILITY_LABEL[item]}</Button>;
+              })}</div>
+            </div>
+          </details>
+        </div>)}
       </div>
       <div className="flex gap-2">
         <Select value={type} onValueChange={(v) => setType(v as typeof type)}>

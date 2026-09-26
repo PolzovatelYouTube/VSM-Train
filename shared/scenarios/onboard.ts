@@ -20,6 +20,7 @@ export function onboardScenario(): ScenarioData {
     category: "request",
     actorId: "a_pet_owner",
     trigger: { type: "actor" },
+    stage: "onboard",
     startNode: "p1",
     nodes: [
       {
@@ -158,6 +159,7 @@ export function onboardScenario(): ScenarioData {
     category: "conflict",
     actorId: "a_drunk",
     trigger: { type: "actor" },
+    stage: "onboard",
     startNode: "d1",
     nodes: [
       {
@@ -312,7 +314,14 @@ export function onboardScenario(): ScenarioData {
     category: "medical",
     actorId: "a_headache",
     trigger: { type: "time", atSec: 70 },
+    stage: "onboard",
     startNode: "m1",
+    context: [
+      { flag: "condition_checked", label: "Динамика состояния уточнена" },
+      { flag: "condition_worsening", label: "Состояние ухудшается" },
+      { flag: "np_called", label: "Начальник поезда уведомлён" },
+      { flag: "medic_found", label: "Медработник среди пассажиров откликнулся" },
+    ],
     nodes: [
       {
         id: "m1",
@@ -323,11 +332,13 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "m1a",
-            text: "«Сочувствую, сейчас помогу. Подскажите, что именно беспокоит и бывало ли такое раньше?»",
+            text: "«Сочувствую, сейчас помогу. Подскажите, что именно беспокоит, усиливается ли это и бывало ли такое раньше?»",
             next: "m2",
-            effects: { loyalty: 5, safety: 5 },
+            effects: { loyalty: 3, safety: 3 },
             correct: true,
             step: "acknowledge",
+            timeCostSec: 4,
+            set: { condition_checked: true },
             hint: "Выяснить причину недомогания.",
           },
           {
@@ -349,16 +360,19 @@ export function onboardScenario(): ScenarioData {
       {
         id: "m2",
         speaker: "Пассажирка Белова",
-        text: "Давление, наверное. Обычно я пью своё, а сегодня забыла дома.",
+        text: "Давление, наверное. Обычно я пью своё, а сегодня забыла дома. Сейчас сильнее кружится голова.",
         timerSec: 20,
         options: [
           {
             id: "m2a",
-            text: "«Сожалею, но на борту отсутствуют медикаменты. Позвольте предложить для Вас воду, чай или кофе»",
+            text: "Уточнить, усиливается ли головокружение, и сообщить, что личные препараты не выдаются",
             next: "m3",
-            effects: { loyalty: 5, safety: 5 },
+            effects: { loyalty: 1, safety: 2 },
             correct: true,
             step: "rule",
+            timeCostSec: 4,
+            set: { condition_worsening: true },
+            feedback: "Динамика уточнена: состояние ухудшается. Разговор занимает время и требует следующего решения, а не автоматически завершает помощь.",
           },
           {
             id: "m2b",
@@ -371,7 +385,7 @@ export function onboardScenario(): ScenarioData {
       {
         id: "m3",
         speaker: "Пассажирка Белова",
-        text: "Воды, пожалуйста. Но голова всё равно болит…",
+        text: "Воды, пожалуйста. Но голова всё равно болит и сильнее кружится…",
         timerSec: 20,
         onTimeout: { next: "m5", effects: { loyalty: -5, safety: -10 }, text: "Пассажирка осталась без помощи и побледнела" },
         options: [
@@ -379,16 +393,17 @@ export function onboardScenario(): ScenarioData {
             id: "m3a",
             text: "Уведомить начальника поезда, объявить по громкой связи поиск медработника среди пассажиров, запросить медиков на ближайшую станцию",
             next: "m4",
-            effects: { loyalty: 5, safety: 15 },
+            effects: { loyalty: 3, safety: 10 },
             correct: true,
             step: "solution",
             set: { np_called: true },
+            outcomes: [{ if: { flag: "condition_worsening" }, correct: true, effects: { loyalty: 1, safety: 15 }, feedback: "Состояние ухудшается: уведомление, поиск медработника и запрос медиков становятся более срочными. На уточнение уже потрачено время." }],
           },
           {
             id: "m3b",
-            text: "Начальник поезда уже в курсе событий в поезде — сразу объявить поиск медработника и запросить медиков на станцию",
+            text: "Начальник поезда уже в курсе — объявить поиск медработника и передать, что состояние ухудшается",
             next: "m4",
-            effects: { loyalty: 5, safety: 15 },
+            effects: { loyalty: 2, safety: 12 },
             correct: true,
             step: "solution",
             if: { flag: "np_called" },
@@ -404,15 +419,17 @@ export function onboardScenario(): ScenarioData {
       {
         id: "m4",
         speaker: "Пассажирка Белова",
-        text: "Спасибо, что не оставили меня одну.",
+        text: "На объявление откликнулся медработник среди пассажиров. Состояние пока не стабилизировалось.",
         options: [
           {
             id: "m4a",
-            text: "«Я рядом. На ближайшей станции Вас встретят медики, я загляну к Вам через пять минут»",
+            text: "Передать медработнику наблюдения, остаться рядом и согласовать дальнейшие действия с начальником поезда",
             next: null,
-            effects: { loyalty: 10, safety: 5 },
+            effects: { loyalty: 6, safety: 8 },
             correct: true,
             step: "assure",
+            set: { medic_found: true },
+            outcomes: [{ if: { all: [{ flag: "condition_worsening" }, { flag: "np_called" }] }, correct: true, effects: { loyalty: 4, safety: 12 }, feedback: "Медработник найден, начальник поезда уже в курсе, а помощь координируется с учётом ухудшения. Идеального исхода нет: доверие тревожной пассажирки восстанавливается постепенно." }],
           },
         ],
       },
@@ -465,6 +482,7 @@ export function onboardScenario(): ScenarioData {
     category: "request",
     actorId: null,
     trigger: { type: "condition", if: { loyalty: { lt: 30 } } },
+    stage: "complaint",
     startNode: "c1",
     nodes: [
       {
@@ -561,7 +579,7 @@ export function onboardScenario(): ScenarioData {
     {
       id: "a_headache",
       name: "Белова",
-      role: "elderly",
+      role: "passenger",
       ticket: { carId: car1.id, seat: "3B" },
       spawn: { carId: car1.id, x: 4, y: 2 },
       mood: 60,
@@ -571,6 +589,7 @@ export function onboardScenario(): ScenarioData {
 
   return {
     version: 1,
+    gameplay: "sequential",
     train: { name: "ВСМ «Сапсан-2» №703", cars: [car1, car2, car3, car4] },
     actors,
     events: [evPet, evDrunk, evMedicine, evComplaint],

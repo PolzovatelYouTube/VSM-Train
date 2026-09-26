@@ -1,7 +1,7 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import type { Car } from "@shared/scenario";
 import type { GameSceneModel, SceneCharacter } from "@shared/visual";
-import { interiorPreset, LANDSCAPE_ASSETS } from "./assets";
+import { CAR_SCENE_ASSETS, CAR_SCENE_SIZE, characterImageFrame, interiorPreset, LANDSCAPE_ASSETS } from "./assets";
 import { WindowLandscape } from "./WindowLandscape";
 import { TrainInterior, NearSeats, TrainForeground } from "./TrainInterior";
 import { CharacterSprite } from "./CharacterSprite";
@@ -33,6 +33,9 @@ export function GameStage({
 }) {
   const [ref, { w, h }] = useElementSize<HTMLDivElement>();
   const palette = interiorPreset(model.interior);
+  const sceneAsset = CAR_SCENE_ASSETS[model.carType];
+  const [failedSceneAsset, setFailedSceneAsset] = useState<string | null>(null);
+  const showPhotoScene = failedSceneAsset !== sceneAsset;
   const WW = worldWidth(car.length);
   const inDialogue = model.phase === "dialogue" || model.phase === "consequence";
   // общий план в наблюдении, наезд в диалоге
@@ -55,6 +58,9 @@ export function GameStage({
   const landTop = camY + (WIN_TOP - 30) * s;
   const landH = 260 * s;
   const sorted = [...model.characters].sort((a, b) => a.depth - b.depth);
+  const photoScale = Math.min(w / CAR_SCENE_SIZE.width, h / CAR_SCENE_SIZE.height);
+  const photoWidth = CAR_SCENE_SIZE.width * photoScale;
+  const photoHeight = CAR_SCENE_SIZE.height * photoScale;
 
   return (
     <div
@@ -64,7 +70,34 @@ export function GameStage({
       data-phase={model.phase}
     >
       <WindowLandscape landscape={model.landscape} top={landTop} height={landH} />
-      {h > 0 && (
+      {h > 0 && showPhotoScene && (
+        <div
+          key={`${model.carId}-photo`}
+          className="g-photo-scene absolute overflow-hidden g-fade-in"
+          style={{ width: photoWidth, height: photoHeight, left: (w - photoWidth) / 2, top: (h - photoHeight) / 2 }}
+        >
+          <img
+            src={sceneAsset}
+            alt=""
+            className="pointer-events-none absolute inset-0 size-full object-contain"
+            draggable={false}
+            onError={() => setFailedSceneAsset(sceneAsset)}
+          />
+          {focus && inDialogue && <PhotoSpotlight c={focus} />}
+          {[...model.characters]
+            .sort((a, b) => a.placement.zIndex - b.placement.zIndex)
+            .map((c) => (
+              <PhotoActor
+                key={c.id}
+                c={c}
+                sceneHeight={photoHeight}
+                speaking={c.id === model.speakerId}
+                focused={c.id === model.focusedActorId && inDialogue}
+              />
+            ))}
+        </div>
+      )}
+      {h > 0 && !showPhotoScene && (
         <div className="g-camera absolute left-0 top-0" style={{ width: WW, height: WORLD_H, transform: `translate3d(${camX}px, ${camY}px, 0) scale(${s})` }}>
           <div key={model.carId} className={cn("absolute inset-0 g-fade-in", !isStatic && "g-sway")}>
             <TrainInterior car={car} palette={palette} />
@@ -99,6 +132,69 @@ function Spotlight({ c, carLength }: { c: SceneCharacter; carLength: number }) {
       className="g-spot absolute rounded-[50%]"
       style={{ left: wx - 110, top: baseline - 22, width: 220, height: 44, background: "radial-gradient(closest-side, rgba(255,236,170,.55), transparent)" }}
     />
+  );
+}
+
+function PhotoSpotlight({ c }: { c: SceneCharacter }) {
+  return (
+    <div
+      className="g-spot pointer-events-none absolute h-[7%] w-[18%] -translate-x-1/2 -translate-y-1/2 rounded-[50%]"
+      style={{ left: `${c.placement.x}%`, top: `${c.placement.y}%`, background: "radial-gradient(closest-side, rgba(255,236,170,.62), transparent)" }}
+    />
+  );
+}
+
+function PhotoActor({ c, sceneHeight, speaking, focused }: { c: SceneCharacter; sceneHeight: number; speaking: boolean; focused: boolean }) {
+  const frame = characterImageFrame(c.preset, c.state, c.seated, c.usesWheelchair);
+  const anchorX = frame?.anchorX ?? 0.5;
+  const anchorY = frame?.anchorY ?? (c.seated ? 0.8 : 0.95);
+  const rasterHeight = frame ? sceneHeight * frame.heightRatio : 0;
+  const vectorScale = (sceneHeight * (c.seated ? 0.22 : 0.27)) / 250;
+  const mark = c.state === "positive" ? "positive" : c.state === "negative" ? "negative" : null;
+
+  return (
+    <div
+      className="g-photo-actor-position pointer-events-none absolute"
+      style={{ left: `${c.placement.x}%`, top: `${c.placement.y}%`, opacity: c.dimmed ? 0.42 : 1, zIndex: c.placement.zIndex }}
+      data-testid={`sprite-${c.id}`}
+      data-state={c.state}
+      data-emotion={c.emotion}
+    >
+      <div className="relative" style={{ transform: `translate(-${anchorX * 100}%, -${anchorY * 100}%)` }}>
+        <div className="g-photo-actor-facing" style={{ transform: `scaleX(${c.facing === "left" ? -1 : 1})` }}>
+          {frame ? (
+            <div className={`g-photo-motion g-st-${c.state}`}>
+              <img
+                src={frame.src}
+                alt=""
+                className="g-photo-body block w-auto max-w-none select-none object-contain drop-shadow-[0_5px_5px_rgba(0,0,0,.38)]"
+                style={{ height: rasterHeight }}
+                draggable={false}
+              />
+            </div>
+          ) : (
+            <div style={{ width: 100, height: 250, transform: `scale(${vectorScale})`, transformOrigin: "50% 100%" }}>
+              <CharacterSprite preset={c.preset} accent={c.accent} state={c.state} emotion={c.emotion} facing="right" seated={c.seated} />
+            </div>
+          )}
+        </div>
+      </div>
+      {(speaking || focused) && (
+        <div className="absolute bottom-3 left-0 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold text-slate-900 shadow">
+          {c.name}
+        </div>
+      )}
+      {c.bubble && !speaking && !c.dimmed && (
+        <div className="g-rise absolute bottom-8 left-0 w-max max-w-[220px] -translate-x-1/2 rounded-xl bg-white px-3 py-1.5 text-center text-xs leading-tight text-slate-900 shadow-md">
+          {c.bubble}
+        </div>
+      )}
+      {mark && (
+        <div className={cn("g-mark absolute bottom-8 left-0 grid size-9 -translate-x-1/2 place-items-center rounded-full text-xl font-bold text-white shadow-lg", mark === "positive" ? "bg-emerald-500" : "bg-red-500")}>
+          {mark === "positive" ? "✓" : "!"}
+        </div>
+      )}
+    </div>
   );
 }
 

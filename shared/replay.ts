@@ -8,7 +8,7 @@
  */
 import type { ReplayAction } from "./schema";
 import type { ScenarioData } from "./scenario";
-import { chooseOption, computeResult, createSim, tick, triggerEvent, visibleOptions, type SimResult, type SimState } from "./engine";
+import { chooseOption, computeResult, createSim, tick, triggerEvent, visibleOptions, concurrentGameplay, selectIncident, leaveIncident, continueInformation, effectiveNodeKind, type SimResult, type SimState } from "./engine";
 
 const STEP_SEC = 0.05;
 const EPSILON_SEC = 0.0001;
@@ -29,7 +29,7 @@ function advanceTo(state: SimState, targetSec: number, data: ScenarioData, pause
   while (!state.finished && state.t + EPSILON_SEC < targetSec) {
     // In training a dialogue intentionally freezes simulation time. A later
     // action cannot be valid until that dialogue has been answered.
-    if (pauseWhileDialogue && state.active)
+    if (pauseWhileDialogue && state.active && !concurrentGameplay(data))
       throw new ReplayError(`Диалог ${state.active.nodeId} не был завершён до следующего действия.`);
     tick(state, Math.min(STEP_SEC, targetSec - state.t), data, { pauseWhileDialogue });
   }
@@ -48,7 +48,21 @@ export function replayAttempt(data: ScenarioData, mode: "training" | "check", ac
     if (action.timestampMs > maxMs)
       throw new ReplayError("Время действия выходит за пределы длительности сценария.");
 
+    if (action.timestampMs / 1000 + 0.001 < state.t)
+      throw new ReplayError("Действие началось раньше завершения предыдущего действия.");
     advanceTo(state, action.timestampMs / 1000, data, pauseWhileDialogue);
+    if (state.finished) throw new ReplayError("Действие после завершения рейса.");
+    if (action.type === "select") {
+      if (!selectIncident(state, data, action.eventId)) throw new ReplayError(`Ситуация ${action.eventId} недоступна.`);
+      previousMs = action.timestampMs;
+      continue;
+    }
+    if (action.type === "leave") {
+      if (!state.active || !concurrentGameplay(data)) throw new ReplayError("Нет ситуации, которую можно оставить ждать.");
+      leaveIncident(state);
+      previousMs = action.timestampMs;
+      continue;
+    }
     if (action.type === "trigger") {
       const event = data.events.find((item) => item.id === action.eventId);
       if (!event || event.trigger.type !== "manual")
@@ -59,15 +73,29 @@ export function replayAttempt(data: ScenarioData, mode: "training" | "check", ac
       continue;
     }
 
+    // Совместимость со старыми журналами: только одна ситуация допускает неявный фокус.
+    if (!state.active && concurrentGameplay(data) && action.type === "choice" && !action.eventId) {
+      const waiting = Object.values(state.incidents).filter((i) => i.status === "waiting");
+      if (waiting.length === 1) selectIncident(state, data, waiting[0].eventId);
+    }
+    if (action.type === "continue") {
+      if (state.active?.eventId !== action.eventId || state.active.nodeId !== action.nodeId || !continueInformation(state, data))
+        throw new ReplayError("Продолжение недоступно вне информационного узла.");
+      previousMs = action.timestampMs;
+      continue;
+    }
+
     if (!state.active)
       throw new ReplayError(`Нет активного диалога для выбора ${action.choiceId}.`);
     if (state.active.nodeId !== action.nodeId)
       throw new ReplayError(`Ожидался узел ${state.active.nodeId}, получен ${action.nodeId}.`);
+    if (action.eventId && state.active.eventId !== action.eventId)
+      throw new ReplayError("Ответ относится к другой ситуации.");
 
     const event = data.events.find((item) => item.id === state.active!.eventId);
     const node = event?.nodes.find((item) => item.id === state.active!.nodeId);
     const option = node && visibleOptions(node, state).find((item) => item.id === action.choiceId);
-    if (!option)
+    if (!option || !node || effectiveNodeKind(node, state) !== "decision")
       throw new ReplayError(`Вариант ${action.choiceId} недоступен в узле ${action.nodeId}.`);
 
     // Reaction time is derived from virtual replay time. It is also bounded by

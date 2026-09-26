@@ -82,8 +82,36 @@ export const carSchema = z.object({
   length: z.number().int(), // клеток по x
   width: z.number().int(), // клеток по y
   cells: z.array(cellSchema),
+  /** Ресурсы конкретного вагона, заданные автором сценария. */
+  availableSeats: z.number().int().min(0).optional(),
+  capabilities: z
+    .object({
+      accessibleToilet: z.boolean().optional(),
+      wheelchairStorage: z.boolean().optional(),
+      writtenCommunication: z.boolean().optional(),
+      visualInformation: z.boolean().optional(),
+      quietArea: z.boolean().optional(),
+      babyCareSpace: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type Car = z.infer<typeof carSchema>;
+
+export const ACCESSIBILITY_NEEDS = ["hearing", "vision", "wheelchair", "mobility"] as const;
+export type AccessibilityNeed = (typeof ACCESSIBILITY_NEEDS)[number];
+
+export const SERVICE_ENTITLEMENTS = [
+  "mealDelivery",
+  "mobilityAssistance",
+  "writtenCommunication",
+  "verbalOrientation",
+  "quietArea",
+  "babyCareAlternative",
+] as const;
+export type ServiceEntitlement = (typeof SERVICE_ENTITLEMENTS)[number];
+
+export const carCapabilitySchema = carSchema.shape.capabilities.unwrap();
+export type CarCapability = keyof z.infer<typeof carCapabilitySchema>;
 
 // ───────────────────────────── Акторы и поведение ─────────────────────────────
 
@@ -166,6 +194,8 @@ export const actorSchema = z.object({
   spawn: z.object({ carId: z.string(), x: z.number().int(), y: z.number().int() }),
   mood: z.number().min(0).max(100),
   steps: z.array(behaviorStepSchema),
+  /** Наблюдаемая потребность в доступности; роль и возраст её не заменяют. */
+  accessibilityNeeds: z.array(z.enum(ACCESSIBILITY_NEEDS)).optional(),
   visual: actorVisualSchema.optional(),
 });
 export type Actor = z.infer<typeof actorSchema>;
@@ -196,14 +226,29 @@ export type Condition =
   | { flag: string; eq?: FlagValue }
   | { loyalty: Range }
   | { safety: Range }
+  | { resource: ResourceCondition }
   | { all: Condition[] }
   | { any: Condition[] };
+
+export type ResourceCondition =
+  | { type: "availableSeats"; carId: string; range: Range }
+  | { type: "carType"; carId: string; eq: CarType }
+  | { type: "capability"; carId: string; capability: CarCapability; eq?: boolean }
+  | { type: "serviceEntitlement"; entitlement: ServiceEntitlement; eq?: boolean };
+
+const resourceConditionSchema: z.ZodType<ResourceCondition> = z.union([
+  z.object({ type: z.literal("availableSeats"), carId: z.string(), range: rangeSchema }),
+  z.object({ type: z.literal("carType"), carId: z.string(), eq: z.enum(CAR_TYPES) }),
+  z.object({ type: z.literal("capability"), carId: z.string(), capability: z.enum(Object.keys(carCapabilitySchema.shape) as [CarCapability, ...CarCapability[]]), eq: z.boolean().optional() }),
+  z.object({ type: z.literal("serviceEntitlement"), entitlement: z.enum(SERVICE_ENTITLEMENTS), eq: z.boolean().optional() }),
+]);
 
 export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
   z.union([
     z.object({ flag: z.string(), eq: flagValueSchema.optional() }),
     z.object({ loyalty: rangeSchema }),
     z.object({ safety: rangeSchema }),
+    z.object({ resource: resourceConditionSchema }),
     z.object({ all: z.array(conditionSchema) }),
     z.object({ any: z.array(conditionSchema) }),
   ]),
@@ -226,6 +271,14 @@ export const dialogueOptionSchema = z.object({
   next: z.string().nullable(), // id следующего узла или null = конец события
   effects: z.object({ loyalty: z.number(), safety: z.number() }),
   correct: z.boolean().optional(), // эталонный вариант (для подсказок и оценки)
+  // Первый подходящий результат оценивается ДО эффектов и установки флагов.
+  outcomes: z.array(z.object({
+    if: conditionSchema,
+    correct: z.boolean(),
+    effects: z.object({ loyalty: z.number(), safety: z.number() }),
+    feedback: z.string(),
+  })).optional(),
+  timeCostSec: z.number().finite().positive().optional(), // расход оставшегося бюджета решения
   hint: z.string().optional(),
   feedback: z.string().optional(), // разбор после рейса: почему выбор так повлиял на шкалы
   step: z.enum(ROLE_STEPS).optional(), // какой шаг ролевой модели реализует реплика
@@ -235,13 +288,39 @@ export const dialogueOptionSchema = z.object({
   nextIf: z.array(z.object({ if: conditionSchema, next: z.string().nullable() })).optional(),
 });
 export type DialogueOption = z.infer<typeof dialogueOptionSchema>;
+export type NodeKind = "decision" | "information";
+export type IncidentStatus = "pending" | "active" | "waiting" | "resolved" | "expired";
+
+export const workloadEntrySchema = z.object({
+  t: z.number(),
+  kind: z.enum(["appeared", "selected", "left", "action", "risk_changed", "escalated", "expired", "resolved"]),
+  eventId: z.string(),
+  nodeId: z.string().optional(),
+  fromEventId: z.string().optional(),
+  optionId: z.string().optional(),
+  text: z.string(),
+  severity: z.number(),
+  urgency: z.enum(["routine", "urgent", "critical"]),
+  responseWindowSec: z.number(),
+  waitingSec: z.number(),
+  priority: z.number(),
+  competingEventIds: z.array(z.string()).optional(),
+  context: z.record(z.string(), flagValueSchema).optional(),
+  correct: z.boolean().optional(),
+  completedAt: z.number().optional(),
+  effects: z.object({ loyalty: z.number(), safety: z.number() }).optional(),
+});
+export type WorkloadEntry = z.infer<typeof workloadEntrySchema>;
 
 export const dialogueNodeSchema = z.object({
   id: z.string(),
+  kind: z.enum(["decision", "information"]).optional(),
   speaker: z.string(),
   text: z.string(),
   timerSec: z.number().min(0).optional(), // 0/undefined = без таймера
   options: z.array(dialogueOptionSchema),
+  next: z.string().nullable().optional(),
+  set: z.record(z.string(), flagValueSchema).optional(),
   // Что происходит, если проводник не успел: своя ветка вместо фиксированного штрафа
   onTimeout: z
     .object({
@@ -270,6 +349,30 @@ export const gameEventSchema = z.object({
   trigger: triggerSchema,
   startNode: z.string(),
   nodes: z.array(dialogueNodeSchema),
+  urgency: z.enum(["routine", "urgent", "critical"]).optional(),
+  severity: z.number().finite().min(0).max(5).optional(),
+  priorityRules: z.array(z.object({
+    if: conditionSchema.optional(),
+    afterSec: z.number().finite().min(0).optional(),
+    severity: z.number().finite().min(0).max(5),
+    urgency: z.enum(["routine", "urgent", "critical"]),
+    responseWindowSec: z.number().finite().positive(),
+    text: z.string(), // наблюдаемые признаки, без готового приоритета
+    set: z.record(z.string(), flagValueSchema).optional(), // контекст стадии для результатов действий
+  })).optional(), // первый подходящий rule; наиболее специфичные размещаются первыми
+  responseWindowSec: z.number().finite().positive().optional(),
+  location: z.object({ carId: z.string(), x: z.number().finite().optional(), y: z.number().finite().optional() }).optional(),
+  escalation: z.object({
+    afterSec: z.number().finite().positive(),
+    nextEvent: z.string().optional(),
+    nextNode: z.string().optional(),
+    effects: z.object({ loyalty: z.number(), safety: z.number() }).optional(),
+    set: z.record(z.string(), flagValueSchema).optional(),
+    text: z.string().optional(),
+  }).optional(),
+  context: z.array(z.object({ flag: z.string(), label: z.string() })).optional(),
+  contentTodo: z.string().optional(), // неподтверждённый учебный материал, не нормативное правило
+  stage: z.enum(["boarding", "onboard", "alighting", "complaint"]).optional(),
 });
 export type GameEvent = z.infer<typeof gameEventSchema>;
 
@@ -277,12 +380,15 @@ export type GameEvent = z.infer<typeof gameEventSchema>;
 
 export const scenarioDataSchema = z.object({
   version: z.literal(1),
+  gameplay: z.enum(["concurrent", "sequential"]).optional(),
   train: z.object({ name: z.string(), cars: z.array(carSchema) }),
   actors: z.array(actorSchema),
   events: z.array(gameEventSchema),
   durationSec: z.number().min(10),
   initial: z.object({ loyalty: z.number(), safety: z.number() }),
   visual: scenarioVisualSchema.optional(),
+  /** Доступные на рейсе сервисы, а не заявление о юридических правах пассажира. */
+  serviceEntitlements: z.partialRecord(z.enum(SERVICE_ENTITLEMENTS), z.boolean()).optional(),
 });
 export type ScenarioData = z.infer<typeof scenarioDataSchema>;
 
@@ -360,6 +466,7 @@ export function demoScenario(): ScenarioData {
     category: "conflict",
     actorId: "a_trouble",
     trigger: { type: "actor" },
+    stage: "boarding",
     startNode: "n1",
     nodes: [
       {
@@ -441,6 +548,7 @@ export function demoScenario(): ScenarioData {
     category: "medical",
     actorId: "a_elderly",
     trigger: { type: "time", atSec: 45 },
+    stage: "onboard",
     startNode: "m1",
     nodes: [
       {
@@ -501,6 +609,7 @@ export function demoScenario(): ScenarioData {
     category: "request",
     actorId: "a_vip",
     trigger: { type: "manual" },
+    stage: "onboard",
     startNode: "r1",
     nodes: [
       {
@@ -611,6 +720,7 @@ export function demoScenario(): ScenarioData {
 
   return {
     version: 1,
+    gameplay: "sequential",
     train: { name: "ВСМ «Сапсан-2» №701", cars: [car1, car2, car3] },
     actors,
     events: [evConflict, evMedical, evRequest],

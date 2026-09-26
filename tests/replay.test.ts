@@ -17,9 +17,13 @@ function replayScenario() {
       nodes: [
         {
           id: "node",
+          kind: "decision",
           speaker: "Система",
           text: "Выберите действие",
-          options: [{ id: "safe", text: "Безопасно", next: null, effects: { loyalty: 2, safety: 7 }, correct: true }],
+          options: [
+            { id: "safe", text: "Устранить неисправность сразу", next: null, effects: { loyalty: 2, safety: 7 }, correct: true },
+            { id: "delegate", text: "Передать ремонт коллеге и продолжить обход", next: null, effects: { loyalty: 0, safety: 3 }, correct: true },
+          ],
         },
       ],
     },

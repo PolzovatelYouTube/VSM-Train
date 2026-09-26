@@ -20,6 +20,7 @@ import {
   newLogEntries,
   consequenceKind,
   SPRITE_PRESETS,
+  resolveNavmeshPlacement,
 } from "../shared/visual";
 
 afterEach(() => vi.useRealTimers());
@@ -94,6 +95,23 @@ describe("projectGameScene", () => {
     expect(m.landscape).toBe("day");
     expect(m.characters.map((c) => c.id)).toContain("a_conductor");
     expect(m.characters.every((c) => !c.dimmed)).toBe(true);
+    expect(m.characters.every((c) => Number.isFinite(c.placement.x) && Number.isFinite(c.placement.y))).toBe(true);
+  });
+
+  it("navmesh сажает персонажа в координаты кресла и задаёт глубину", () => {
+    const data = demoScenario();
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "5A")!;
+    const s = createSim(data);
+    const actor = s.actors.find((a) => a.id === "a_trouble")!;
+    actor.carId = car.id;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.seated = true;
+    actor.path = [];
+
+    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(projectGameScene(data, s).characters.find((c) => c.id === actor.id)?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
   });
 
   it("dialogue: фокус на Громове, он говорит, остальные приглушены", () => {
@@ -124,6 +142,11 @@ describe("projectGameScene", () => {
     expect(m.consequence).toMatchObject({ kind: "positive", loyalty: entry.effects.loyalty });
     expect(m.characters.find((c) => c.id === "a_trouble")!.state).toBe("positive");
     expect(m.characters.find((c) => c.id === "a_trouble")!.emotion).toBe("happy");
+
+    const trouble = s.actors.find((a) => a.id === "a_trouble")!;
+    trouble.bubble = { text: "Прошлая реплика", until: s.t + 10 };
+    expect(projectGameScene(data, s).characters.find((c) => c.id === "a_trouble")!.bubble).toBe("Прошлая реплика");
+    expect(projectGameScene(data, s, { consequence: entry }).characters.find((c) => c.id === "a_trouble")!.bubble).toBeNull();
 
     pick(s, data, "o5");
     const bad = s.log[s.log.length - 1];

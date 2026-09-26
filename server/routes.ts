@@ -135,6 +135,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         avgReactionMs: Math.round(result.avgReactionMs),
         competencies: result.competencies,
         log: replay.state.log,
+        workload: replay.state.workload,
       });
       notifyAttemptOutcome(player.id, before, storage.getProfile(player.name)!);
       res.status(201).json(row);

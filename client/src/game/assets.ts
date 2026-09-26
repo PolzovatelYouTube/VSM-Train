@@ -3,10 +3,81 @@
  * Все файлы лежат локально в client/public/game-assets (происхождение — в README там же).
  * Если файл не загрузился, под ним всегда есть CSS-градиент/цвет — сцена не ломается.
  */
-import type { Landscape } from "@shared/scenario";
-import type { SpritePreset } from "@shared/visual";
+import type { CarType, Landscape } from "@shared/scenario";
+import type { CharacterState, SpritePreset } from "@shared/visual";
 
 const BASE = `${import.meta.env.BASE_URL}game-assets/`;
+
+/** Растровые спрайты состава для компактного навигатора; CSS-карточки остаются fallback. */
+export const TRAIN_ASSETS = {
+  tail: `${BASE}train/train-tail.png`,
+  car: `${BASE}train/train-car.png`,
+  head: `${BASE}train/train-head.png`,
+} as const;
+
+export const CAR_SCENE_SIZE = { width: 1448, height: 1086 } as const;
+
+/** Изометрические подложки классов. Бистро использует ту же геометрию, что и standard. */
+export const CAR_SCENE_ASSETS: Record<CarType, string> = {
+  first: `${BASE}interiors/first.png`,
+  business: `${BASE}interiors/business.png`,
+  comfort: `${BASE}interiors/comfort.png`,
+  standard: `${BASE}interiors/standard.png`,
+  bistro: `${BASE}interiors/standard.png`,
+};
+
+export interface CharacterImageFrame {
+  src: string;
+  anchorX: number;
+  anchorY: number;
+  /** Высота относительно высоты подложки вагона. */
+  heightRatio: number;
+}
+
+const characterFrame = (file: string, anchorY: number, heightRatio: number): CharacterImageFrame => ({
+  src: `${BASE}characters/${file}`,
+  anchorX: 0.5,
+  anchorY,
+  heightRatio,
+});
+
+const CHARACTER_IMAGE_FRAMES = {
+  child: {
+    stand: characterFrame("child_boy_stand.png", 0.95, 0.25),
+    sit: characterFrame("child_boy_sit.png", 0.8, 0.2),
+  },
+  elderly: {
+    stand: characterFrame("elderly_woman_stand.png", 0.95, 0.28),
+    sit: characterFrame("elderly_woman_sit.png", 0.8, 0.22),
+  },
+  passenger: {
+    sit: characterFrame("passenger_male_sit.png", 0.8, 0.22),
+  },
+  vip: {
+    stand: characterFrame("vip_businessman_walk.png", 0.95, 0.3),
+    sit: characterFrame("vip_businessman_sit.png", 0.8, 0.22),
+  },
+  wheelchair: {
+    stand: characterFrame("prm_passenger_wheelchair.png", 0.9, 0.28),
+    sit: characterFrame("prm_passenger_sit.png", 0.8, 0.24),
+  },
+} as const;
+
+/** PNG-поза, если для персонажа она есть; undefined означает SVG-fallback. */
+export function characterImageFrame(
+  preset: SpritePreset,
+  state: CharacterState,
+  seated: boolean,
+  usesWheelchair: boolean,
+): CharacterImageFrame | undefined {
+  const pose = seated || state === "sit" ? "sit" : "stand";
+  if (usesWheelchair) return CHARACTER_IMAGE_FRAMES.wheelchair[pose];
+  if (preset === "child") return CHARACTER_IMAGE_FRAMES.child[pose];
+  if (preset === "elderly-f" || preset === "elderly-m") return CHARACTER_IMAGE_FRAMES.elderly[pose];
+  if (preset === "vip") return CHARACTER_IMAGE_FRAMES.vip[pose];
+  if ((preset === "passenger-f" || preset === "passenger-m") && pose === "sit") return CHARACTER_IMAGE_FRAMES.passenger.sit;
+  return undefined;
+}
 
 export interface LandscapeAsset {
   far: string;

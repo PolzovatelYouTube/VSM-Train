@@ -5,6 +5,34 @@ import { Heart, ShieldCheck, Timer, Flame } from "lucide-react";
 import type { ReactNode } from "react";
 import { Progress } from "@/components/ui/progress";
 import type { LevelInfo, ExpiringPoints } from "@shared/gamification";
+import { TRAIN_ASSETS } from "@/game/assets";
+
+function TrainTerminal({ side }: { side: "tail" | "head" }) {
+  const isHead = side === "head";
+  const asset = isHead ? TRAIN_ASSETS.head : TRAIN_ASSETS.tail;
+  return (
+    <div className={cn("train-terminal", isHead ? "train-terminal--head" : "train-terminal--tail")} role="img" aria-label={isHead ? "Голова поезда" : "Хвост поезда"}>
+      <img className="train-terminal__image" src={asset} alt="" onError={({ currentTarget }) => { currentTarget.hidden = true; }} />
+      <svg className="train-terminal__fallback" viewBox="0 0 96 64" aria-hidden="true">
+        {isHead ? (
+          <>
+            <path className="train-terminal__body" d="M6 53V18c0-7 5-12 12-12h45c10 0 18 4 25 12l5 6c3 4 3 10 0 14l-5 6c-7 8-15 12-25 12H18C11 56 6 55 6 53Z" />
+            <path className="train-terminal__window" d="M19 15h42c7 0 12 2 17 8l3 4H18v-7c0-3 1-5 1-5Z" />
+            <circle className="train-terminal__light" cx="82" cy="35" r="3.5" />
+          </>
+        ) : (
+          <>
+            <path className="train-terminal__body" d="M90 53V18c0-7-5-12-12-12H33c-10 0-18 4-25 12l-5 6c-3 4-3 10 0 14l5 6c7 8 15 12 25 12h45c7 0 12-1 12-3Z" />
+            <path className="train-terminal__window" d="M77 15H35c-7 0-12 2-17 8l-3 4h63v-7c0-3-1-5-1-5Z" />
+            <circle className="train-terminal__tail-light" cx="14" cy="35" r="3.5" />
+          </>
+        )}
+        <path className="train-terminal__rail" d="M12 56h72" />
+      </svg>
+      <span>{isHead ? "Голова" : "Хвост"}</span>
+    </div>
+  );
+}
 
 /** Схема состава: переключение между вагонами */
 export function TrainStrip({
@@ -12,43 +40,48 @@ export function TrainStrip({
   selectedId,
   onSelect,
   badges = {},
+  className,
 }: {
   cars: Car[];
+  className?: string;
   selectedId: string;
   onSelect: (id: string) => void;
   badges?: Record<string, number>; // carId → число акторов/событий
 }) {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto py-1" role="tablist" aria-label="Вагоны состава">
-      <span className="text-xs text-muted-foreground mr-1 shrink-0">Хвост</span>
+    <div className={cn("train-navigator", className)} role="tablist" aria-label="Вагоны состава">
+      <TrainTerminal side="tail" />
       {cars.map((c) => {
         const active = c.id === selectedId;
         return (
-          <button
-            key={c.id}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onSelect(c.id)}
-            data-testid={`button-car-${c.number}`}
-            className={cn(
-              "relative shrink-0 rounded-md border px-3 py-1.5 text-sm transition-colors",
-              active ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-accent",
-            )}
-            title={CAR_TYPE_LABEL[c.type]}
-          >
-            <span className="font-mono font-semibold">{c.number}</span>
-            <span className={cn("ml-1.5 text-xs", active ? "text-primary-foreground/80" : "text-muted-foreground")}>
-              {CAR_TYPE_SHORT[c.type]}
+          <div className="train-car-slot" key={c.id}>
+            <button
+              role="tab"
+              aria-selected={active}
+              aria-label={`Вагон ${c.number}: ${CAR_TYPE_LABEL[c.type]}`}
+              onClick={() => onSelect(c.id)}
+              data-testid={`button-car-${c.number}`}
+              className={cn(
+                "train-car-card",
+                active && "train-car-card--active",
+              )}
+              title={CAR_TYPE_LABEL[c.type]}
+            >
+              <img className="train-car-card__image" src={TRAIN_ASSETS.car} alt="" onError={({ currentTarget }) => { currentTarget.hidden = true; }} />
+              {badges[c.id] ? (
+                <span className="train-car-card__badge">
+                  {badges[c.id]}
+                </span>
+              ) : null}
+            </button>
+            <span className="train-car-card__label" aria-hidden="true">
+              <span className="train-car-card__number">{c.number}</span>
+              <span className="train-car-card__type">{CAR_TYPE_SHORT[c.type]}</span>
             </span>
-            {badges[c.id] ? (
-              <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-[hsl(var(--loyalty))] text-[10px] font-bold text-white grid place-items-center">
-                {badges[c.id]}
-              </span>
-            ) : null}
-          </button>
+          </div>
         );
       })}
-      <span className="text-xs text-muted-foreground ml-1 shrink-0">Голова →</span>
+      <TrainTerminal side="head" />
     </div>
   );
 }

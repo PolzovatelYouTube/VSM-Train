@@ -25,6 +25,12 @@ import {
 import { demoScenario } from "@shared/scenario";
 import { onboardScenario, ONBOARD_SCENARIO_NAME } from "@shared/scenarios/onboard";
 import { accessibilityScenario, ACCESSIBILITY_SCENARIO_NAME } from "@shared/scenarios/accessibility";
+import { contextualScenario, CONTEXTUAL_SCENARIO_NAME } from "@shared/scenarios/contextual";
+import { multiIncidentScenario, MULTI_INCIDENT_SCENARIO_NAME } from "@shared/scenarios/multi-incident";
+import { parallelSituationsScenario, PARALLEL_SITUATIONS_SCENARIO_NAME } from "@shared/scenarios/parallel-situations";
+import { boardingUnderPressureScenario, BOARDING_PRESSURE_SCENARIO_NAME } from "@shared/scenarios/boarding-under-pressure";
+import { serviceByClassEquipmentScenario, SERVICE_BY_CLASS_EQUIPMENT_SCENARIO_NAME } from "@shared/scenarios/service-by-class-equipment";
+import { accessibilityCommunicationScenario, ACCESSIBILITY_COMMUNICATION_SCENARIO_NAME } from "@shared/scenarios/accessibility-communication";
 import { TRAINING_POINTS, PRACTICE_POINTS } from "@shared/rules";
 import { ACHIEVEMENTS, evaluateAchievements } from "@shared/achievements";
 import { skillProfile, buildInsights, teamMatrix, topMistakes, type AnalyticsRow } from "@shared/analytics";
@@ -134,6 +140,7 @@ ensureColumn("players", "xp", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("players", "password_hash", "TEXT");
 ensureColumn("players", "role", "TEXT NOT NULL DEFAULT 'conductor'");
 ensureColumn("attempts", "xp", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("attempts", "workload", "TEXT NOT NULL DEFAULT '[]'");
 // старые проверочные рейсы получают баллы по текущему правилу
 ensureColumn(
   "attempts",
@@ -247,6 +254,7 @@ export class DatabaseStorage implements IStorage {
         avgReactionMs: a.avgReactionMs,
         competencies: JSON.stringify(a.competencies),
         log: JSON.stringify(a.log),
+        workload: JSON.stringify(a.workload ?? []),
         xp,
         points,
         createdAt,
@@ -472,6 +480,12 @@ export const practicePointsFor = (score: number) => Math.round(score * PRACTICE_
 export const storage = new DatabaseStorage();
 
 const SEED_SCENARIOS = [
+  { name: PARALLEL_SITUATIONS_SCENARIO_NAME, description: "Четыре обращения со сменой риска: розетка, спор, умеренное недомогание и поздний сигнал о бесхозной вещи. Оценка обзора обстановки и управления нагрузкой.", difficulty: 3, data: parallelSituationsScenario },
+  { name: MULTI_INCIDENT_SCENARIO_NAME, description: "Розетка, спор за место и ухудшение самочувствия: выберите очередность помощи, пока остальные ситуации развиваются.", difficulty: 3, data: multiIncidentScenario },
+  { name: BOARDING_PRESSURE_SCENARIO_NAME, description: "Пять параллельных обращений при посадке: билет, разряженный телефон, багаж в проходе, спор за место и подтверждение личности.", difficulty: 3, data: boardingUnderPressureScenario },
+  { name: SERVICE_BY_CLASS_EQUIPMENT_SCENARIO_NAME, description: "Конкурирующие запросы на единственное место Business: тихое место, неисправность оборудования и повышение класса.", difficulty: 3, data: serviceByClassEquipmentScenario },
+  { name: ACCESSIBILITY_COMMUNICATION_SCENARIO_NAME, description: "Два канала доступной коммуникации: письменный для нарушения слуха и устная ориентация для нарушения зрения.", difficulty: 3, data: accessibilityCommunicationScenario },
+  { name: CONTEXTUAL_SCENARIO_NAME, description: "Семь неоднозначных ситуаций: уточнение контекста, стоимость решений и отложенные претензии. Неподтверждённые методики отмечены TODO.", difficulty: 3, data: contextualScenario },
   {
     name: "Демо: рейс Москва — Санкт-Петербург",
     description:

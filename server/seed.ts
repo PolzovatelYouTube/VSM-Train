@@ -6,7 +6,7 @@
 import { db, storage } from "./storage";
 import { depots, teams, players, challenges, attempts, type ChallengeRule } from "@shared/schema";
 import { scenarioDataSchema, type ScenarioData } from "@shared/scenario";
-import { createSim, openNode, findNode, visibleOptions, chooseOption, timeoutDialogue, computeResult, evalCondition } from "@shared/engine";
+import { createSim, openNode, findNode, visibleOptions, chooseOption, timeoutDialogue, computeResult, evalCondition, resolveOutcome, effectiveNodeKind, continueInformation } from "@shared/engine";
 
 const DEMO_STRUCTURE = [
   {
@@ -80,6 +80,10 @@ function botRun(data: ScenarioData, rnd: () => number, skill: number, lateness: 
     openNode(state, data, ev.id, ev.startNode);
     while (state.active) {
       const node = findNode(data, state.active.eventId, state.active.nodeId);
+      if (node && effectiveNodeKind(node, state) === "information") {
+        continueInformation(state, data);
+        continue;
+      }
       const options = node ? visibleOptions(node, state) : [];
       const limitMs = (state.active.limitSec ?? node?.timerSec ?? 15) * 1000;
       if (!options.length || (node?.timerSec && rnd() < lateness)) {
@@ -87,8 +91,8 @@ function botRun(data: ScenarioData, rnd: () => number, skill: number, lateness: 
         state.log[state.log.length - 1].reactionMs = limitMs;
         continue;
       }
-      const right = options.filter((o) => o.correct);
-      const wrong = options.filter((o) => !o.correct);
+      const right = options.filter((o) => resolveOutcome(o, state).correct);
+      const wrong = options.filter((o) => !resolveOutcome(o, state).correct);
       const pool = right.length && (rnd() < skill || !wrong.length) ? right : wrong;
       chooseOption(state, data, pool[Math.floor(rnd() * pool.length)]);
       state.log[state.log.length - 1].reactionMs = Math.round(limitMs * (0.2 + rnd() * (1.1 - skill)));

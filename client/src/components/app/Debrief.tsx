@@ -71,6 +71,14 @@ function DebriefRow({ item: d, n }: { item: DebriefItem; n?: number }) {
         <span className="font-semibold">Почему: </span>
         {d.why}
       </p>
+      {d.context && <div className="text-xs space-y-1">
+        <p>Было известно: {d.context.known.join("; ") || "контекст ещё не уточнён"}.</p>
+        {!!d.context.missing.length && <p>Не выяснено: {d.context.missing.join("; ")}.</p>}
+      </div>}
+      {!!d.changes?.length && <p className="text-xs">После выбора: {d.changes.join("; ")}.</p>}
+      {!!d.consequences?.length && <p className="text-xs">Этот выбор привёл к событию: {d.consequences.join("; ")}.</p>}
+      {d.timeCostSec && <p className="text-xs">На действие потрачено {d.timeCostSec} с бюджета решения.</p>}
+      {d.competence && <p className="text-xs text-muted-foreground">{d.competence}</p>}
       {d.violation && (
         <p className="flex items-start gap-1.5 text-xs text-[hsl(var(--danger))]">
           <AlertTriangle className="size-3.5 shrink-0 mt-0.5" /> {d.violation}

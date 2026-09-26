@@ -1,6 +1,7 @@
 import { CheckCircle2, AlertTriangle, Hourglass } from "lucide-react";
 import type { SceneConsequence } from "@shared/visual";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const META = {
   positive: { title: "Верное решение", icon: CheckCircle2, ring: "rgba(16,185,129,.55)", cls: "bg-emerald-600" },
@@ -11,13 +12,13 @@ const META = {
 const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 /** Реакция на выбор поверх сцены: вспышка по краю + плашка с изменением шкал и коротким разбором */
-export function ConsequenceOverlay({ c, feedback }: { c: SceneConsequence; feedback?: string }) {
+export function ConsequenceOverlay({ c, feedback, onContinue }: { c: SceneConsequence; feedback?: string; onContinue: () => void }) {
   const m = META[c.kind];
   const Icon = m.icon;
   return (
     <div className="pointer-events-none absolute inset-0 z-30" data-testid="consequence-overlay" data-kind={c.kind}>
       <div className="g-flash absolute inset-0" style={{ boxShadow: `inset 0 0 90px 10px ${m.ring}` }} />
-      <div className="absolute inset-x-0 top-3 flex justify-center px-3">
+      <div className="pointer-events-auto absolute inset-x-0 top-3 bottom-3 flex items-start justify-center overflow-y-auto px-3">
         <div className={cn("g-mark flex max-w-md items-start gap-2.5 rounded-xl px-4 py-2.5 text-white shadow-2xl", m.cls)} role="status">
           <Icon className="mt-0.5 size-5 shrink-0" />
           <div>
@@ -26,6 +27,9 @@ export function ConsequenceOverlay({ c, feedback }: { c: SceneConsequence; feedb
               Лояльность {fmt(c.loyalty)} · Безопасность {fmt(c.safety)}
             </div>
             {feedback && <div className="mt-1 text-xs leading-snug opacity-95">{feedback}</div>}
+            <Button variant="secondary" className="mt-3 min-h-11" onClick={onContinue} data-testid="button-continue-consequence">
+              Продолжить
+            </Button>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { scenarioDataSchema, EVENT_CATEGORIES } from "./scenario";
+import { scenarioDataSchema, EVENT_CATEGORIES, workloadEntrySchema } from "./scenario";
 import type { LevelInfo, ExpiringPoints } from "./gamification";
 import type { Skill, MemberSkills, TeamMistake } from "./analytics";
 
@@ -53,6 +53,7 @@ export const attempts = sqliteTable("attempts", {
   avgReactionMs: integer("avg_reaction_ms").notNull(),
   competencies: text("competencies").notNull(), // JSON
   log: text("log").notNull(), // JSON LogEntry[]
+  workload: text("workload").notNull().default("[]"), // JSON WorkloadEntry[], рассчитан сервером
   xp: integer("xp").notNull().default(0), // сколько опыта дала попытка
   points: integer("points").notNull().default(0), // баллы практики за попытку (сгорают через POINTS_TTL_DAYS)
   createdAt: integer("created_at").notNull(),
@@ -151,6 +152,7 @@ export const replayActionSchema = z.discriminatedUnion("type", [
     type: z.literal("choice"),
     nodeId: z.string().min(1),
     choiceId: z.string().min(1),
+    eventId: z.string().min(1).optional(), // старые журналы без eventId читаются только при однозначном фокусе
     timestampMs: z.number().int().min(0),
   }),
   z.object({
@@ -158,6 +160,9 @@ export const replayActionSchema = z.discriminatedUnion("type", [
     eventId: z.string().min(1),
     timestampMs: z.number().int().min(0),
   }),
+  z.object({ type: z.literal("select"), eventId: z.string().min(1), timestampMs: z.number().int().min(0) }),
+  z.object({ type: z.literal("leave"), timestampMs: z.number().int().min(0) }),
+  z.object({ type: z.literal("continue"), eventId: z.string().min(1), nodeId: z.string().min(1), timestampMs: z.number().int().min(0) }),
 ]);
 export type ReplayAction = z.infer<typeof replayActionSchema>;
 
@@ -181,6 +186,7 @@ export const insertAttemptSchema = z.object({
   avgReactionMs: z.number().int(),
   competencies: z.record(z.string(), z.number()),
   log: z.array(z.any()),
+  workload: z.array(workloadEntrySchema).optional(),
 });
 export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
 export type Attempt = typeof attempts.$inferSelect;
