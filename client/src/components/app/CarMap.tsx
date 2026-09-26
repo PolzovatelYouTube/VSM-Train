@@ -34,6 +34,8 @@ interface Props {
   onActorClick?: (id: string) => void;
   cursor?: "default" | "crosshair" | "pointer";
   className?: string;
+  /** Компактный режим (мини-карта игры): без минимальной ширины */
+  compact?: boolean;
 }
 
 export const ROLE_COLOR: Record<ActorRole, string> = {
@@ -56,6 +58,7 @@ export const CarMap = memo(function CarMap({
   onActorClick,
   cursor = "default",
   className,
+  compact = false,
 }: Props) {
   const W = car.length * CELL + PAD * 2;
   const H = car.width * CELL + PAD * 2;
@@ -66,7 +69,7 @@ export const CarMap = memo(function CarMap({
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className={className}
-      style={{ width: "100%", minWidth: Math.min(W, 640), height: "auto", cursor, display: "block" }}
+      style={{ width: "100%", minWidth: compact ? 0 : Math.min(W, 640), height: "auto", cursor, display: "block" }}
       role="img"
       aria-label={`Вагон ${car.number}`}
       data-testid={`map-car-${car.number}`}
