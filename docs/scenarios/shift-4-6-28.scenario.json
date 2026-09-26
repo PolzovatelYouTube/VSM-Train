@@ -1,0 +1,2526 @@
+{
+ "name": "Смена ВСМ: №4, №6, №28",
+ "description": "Учебная смена практического режима",
+ "difficulty": 2,
+ "data": {
+  "version": 1,
+  "train": {
+   "name": "ВСМ №705",
+   "cars": [
+    {
+     "id": "car1",
+     "number": 1,
+     "type": "first",
+     "length": 10,
+     "width": 4,
+     "cells": [
+      {
+       "x": 0,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 1,
+       "kind": "door"
+      },
+      {
+       "x": 0,
+       "y": 2,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 3,
+       "kind": "vestibule"
+      },
+      {
+       "x": 1,
+       "y": 0,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 1,
+       "y": 2,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 2,
+       "y": 0,
+       "kind": "seat",
+       "seat": "1A"
+      },
+      {
+       "x": 2,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 2,
+       "kind": "seat",
+       "seat": "1B"
+      },
+      {
+       "x": 2,
+       "y": 3,
+       "kind": "seat",
+       "seat": "1C"
+      },
+      {
+       "x": 3,
+       "y": 0,
+       "kind": "seat",
+       "seat": "2A"
+      },
+      {
+       "x": 3,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 2,
+       "kind": "seat",
+       "seat": "2B"
+      },
+      {
+       "x": 3,
+       "y": 3,
+       "kind": "seat",
+       "seat": "2C"
+      },
+      {
+       "x": 4,
+       "y": 0,
+       "kind": "seat",
+       "seat": "3A"
+      },
+      {
+       "x": 4,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 2,
+       "kind": "seat",
+       "seat": "3B"
+      },
+      {
+       "x": 4,
+       "y": 3,
+       "kind": "seat",
+       "seat": "3C"
+      },
+      {
+       "x": 5,
+       "y": 0,
+       "kind": "seat",
+       "seat": "4A"
+      },
+      {
+       "x": 5,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 2,
+       "kind": "seat",
+       "seat": "4B"
+      },
+      {
+       "x": 5,
+       "y": 3,
+       "kind": "seat",
+       "seat": "4C"
+      },
+      {
+       "x": 6,
+       "y": 0,
+       "kind": "seat",
+       "seat": "5A"
+      },
+      {
+       "x": 6,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 2,
+       "kind": "seat",
+       "seat": "5B"
+      },
+      {
+       "x": 6,
+       "y": 3,
+       "kind": "seat",
+       "seat": "5C"
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "kind": "seat",
+       "seat": "6A"
+      },
+      {
+       "x": 7,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 2,
+       "kind": "seat",
+       "seat": "6B"
+      },
+      {
+       "x": 7,
+       "y": 3,
+       "kind": "seat",
+       "seat": "6C"
+      },
+      {
+       "x": 8,
+       "y": 0,
+       "kind": "luggage"
+      },
+      {
+       "x": 8,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 8,
+       "y": 2,
+       "kind": "luggage"
+      },
+      {
+       "x": 8,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 9,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 9,
+       "y": 1,
+       "kind": "door"
+      },
+      {
+       "x": 9,
+       "y": 2,
+       "kind": "vestibule"
+      },
+      {
+       "x": 9,
+       "y": 3,
+       "kind": "vestibule"
+      }
+     ]
+    },
+    {
+     "id": "car2",
+     "number": 2,
+     "type": "business",
+     "length": 12,
+     "width": 5,
+     "cells": [
+      {
+       "x": 0,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 2,
+       "kind": "door"
+      },
+      {
+       "x": 0,
+       "y": 3,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 4,
+       "kind": "vestibule"
+      },
+      {
+       "x": 1,
+       "y": 0,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 1,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 1,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 2,
+       "y": 0,
+       "kind": "seat",
+       "seat": "1A"
+      },
+      {
+       "x": 2,
+       "y": 1,
+       "kind": "seat",
+       "seat": "1B"
+      },
+      {
+       "x": 2,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 3,
+       "kind": "seat",
+       "seat": "1C"
+      },
+      {
+       "x": 2,
+       "y": 4,
+       "kind": "seat",
+       "seat": "1D"
+      },
+      {
+       "x": 3,
+       "y": 0,
+       "kind": "seat",
+       "seat": "2A"
+      },
+      {
+       "x": 3,
+       "y": 1,
+       "kind": "seat",
+       "seat": "2B"
+      },
+      {
+       "x": 3,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 3,
+       "kind": "seat",
+       "seat": "2C"
+      },
+      {
+       "x": 3,
+       "y": 4,
+       "kind": "seat",
+       "seat": "2D"
+      },
+      {
+       "x": 4,
+       "y": 0,
+       "kind": "seat",
+       "seat": "3A"
+      },
+      {
+       "x": 4,
+       "y": 1,
+       "kind": "seat",
+       "seat": "3B"
+      },
+      {
+       "x": 4,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 3,
+       "kind": "seat",
+       "seat": "3C"
+      },
+      {
+       "x": 4,
+       "y": 4,
+       "kind": "seat",
+       "seat": "3D"
+      },
+      {
+       "x": 5,
+       "y": 0,
+       "kind": "seat",
+       "seat": "4A"
+      },
+      {
+       "x": 5,
+       "y": 1,
+       "kind": "seat",
+       "seat": "4B"
+      },
+      {
+       "x": 5,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 3,
+       "kind": "seat",
+       "seat": "4C"
+      },
+      {
+       "x": 5,
+       "y": 4,
+       "kind": "seat",
+       "seat": "4D"
+      },
+      {
+       "x": 6,
+       "y": 0,
+       "kind": "seat",
+       "seat": "5A"
+      },
+      {
+       "x": 6,
+       "y": 1,
+       "kind": "seat",
+       "seat": "5B"
+      },
+      {
+       "x": 6,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 3,
+       "kind": "seat",
+       "seat": "5C"
+      },
+      {
+       "x": 6,
+       "y": 4,
+       "kind": "seat",
+       "seat": "5D"
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "kind": "seat",
+       "seat": "6A"
+      },
+      {
+       "x": 7,
+       "y": 1,
+       "kind": "seat",
+       "seat": "6B"
+      },
+      {
+       "x": 7,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 3,
+       "kind": "seat",
+       "seat": "6C"
+      },
+      {
+       "x": 7,
+       "y": 4,
+       "kind": "seat",
+       "seat": "6D"
+      },
+      {
+       "x": 8,
+       "y": 0,
+       "kind": "seat",
+       "seat": "7A"
+      },
+      {
+       "x": 8,
+       "y": 1,
+       "kind": "seat",
+       "seat": "7B"
+      },
+      {
+       "x": 8,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 8,
+       "y": 3,
+       "kind": "seat",
+       "seat": "7C"
+      },
+      {
+       "x": 8,
+       "y": 4,
+       "kind": "seat",
+       "seat": "7D"
+      },
+      {
+       "x": 9,
+       "y": 0,
+       "kind": "seat",
+       "seat": "8A"
+      },
+      {
+       "x": 9,
+       "y": 1,
+       "kind": "seat",
+       "seat": "8B"
+      },
+      {
+       "x": 9,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 9,
+       "y": 3,
+       "kind": "seat",
+       "seat": "8C"
+      },
+      {
+       "x": 9,
+       "y": 4,
+       "kind": "seat",
+       "seat": "8D"
+      },
+      {
+       "x": 10,
+       "y": 0,
+       "kind": "luggage"
+      },
+      {
+       "x": 10,
+       "y": 1,
+       "kind": "luggage"
+      },
+      {
+       "x": 10,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 10,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 10,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 11,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 11,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 11,
+       "y": 2,
+       "kind": "door"
+      },
+      {
+       "x": 11,
+       "y": 3,
+       "kind": "vestibule"
+      },
+      {
+       "x": 11,
+       "y": 4,
+       "kind": "vestibule"
+      }
+     ]
+    },
+    {
+     "id": "car3",
+     "number": 3,
+     "type": "bistro",
+     "length": 10,
+     "width": 5,
+     "cells": [
+      {
+       "x": 0,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 2,
+       "kind": "door"
+      },
+      {
+       "x": 0,
+       "y": 3,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 4,
+       "kind": "vestibule"
+      },
+      {
+       "x": 1,
+       "y": 0,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 1,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 1,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 2,
+       "y": 0,
+       "kind": "bar"
+      },
+      {
+       "x": 2,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 4,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 0,
+       "kind": "bar"
+      },
+      {
+       "x": 3,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 4,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 0,
+       "kind": "bar"
+      },
+      {
+       "x": 4,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 4,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 0,
+       "kind": "bar"
+      },
+      {
+       "x": 5,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 4,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 0,
+       "kind": "table"
+      },
+      {
+       "x": 6,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 4,
+       "kind": "table"
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 1,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 4,
+       "kind": "aisle"
+      },
+      {
+       "x": 8,
+       "y": 0,
+       "kind": "luggage"
+      },
+      {
+       "x": 8,
+       "y": 1,
+       "kind": "luggage"
+      },
+      {
+       "x": 8,
+       "y": 2,
+       "kind": "aisle"
+      },
+      {
+       "x": 8,
+       "y": 3,
+       "kind": "luggage"
+      },
+      {
+       "x": 8,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 9,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 9,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 9,
+       "y": 2,
+       "kind": "door"
+      },
+      {
+       "x": 9,
+       "y": 3,
+       "kind": "vestibule"
+      },
+      {
+       "x": 9,
+       "y": 4,
+       "kind": "vestibule"
+      }
+     ]
+    },
+    {
+     "id": "car4",
+     "number": 4,
+     "type": "standard",
+     "length": 14,
+     "width": 6,
+     "cells": [
+      {
+       "x": 0,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 2,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 3,
+       "kind": "door"
+      },
+      {
+       "x": 0,
+       "y": 4,
+       "kind": "vestibule"
+      },
+      {
+       "x": 0,
+       "y": 5,
+       "kind": "vestibule"
+      },
+      {
+       "x": 1,
+       "y": 0,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 1,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 2,
+       "kind": "toilet"
+      },
+      {
+       "x": 1,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 1,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 1,
+       "y": 5,
+       "kind": "luggage"
+      },
+      {
+       "x": 2,
+       "y": 0,
+       "kind": "seat",
+       "seat": "1A"
+      },
+      {
+       "x": 2,
+       "y": 1,
+       "kind": "seat",
+       "seat": "1B"
+      },
+      {
+       "x": 2,
+       "y": 2,
+       "kind": "seat",
+       "seat": "1C"
+      },
+      {
+       "x": 2,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 2,
+       "y": 4,
+       "kind": "seat",
+       "seat": "1D"
+      },
+      {
+       "x": 2,
+       "y": 5,
+       "kind": "seat",
+       "seat": "1E"
+      },
+      {
+       "x": 3,
+       "y": 0,
+       "kind": "seat",
+       "seat": "2A"
+      },
+      {
+       "x": 3,
+       "y": 1,
+       "kind": "seat",
+       "seat": "2B"
+      },
+      {
+       "x": 3,
+       "y": 2,
+       "kind": "seat",
+       "seat": "2C"
+      },
+      {
+       "x": 3,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 3,
+       "y": 4,
+       "kind": "seat",
+       "seat": "2D"
+      },
+      {
+       "x": 3,
+       "y": 5,
+       "kind": "seat",
+       "seat": "2E"
+      },
+      {
+       "x": 4,
+       "y": 0,
+       "kind": "seat",
+       "seat": "3A"
+      },
+      {
+       "x": 4,
+       "y": 1,
+       "kind": "seat",
+       "seat": "3B"
+      },
+      {
+       "x": 4,
+       "y": 2,
+       "kind": "seat",
+       "seat": "3C"
+      },
+      {
+       "x": 4,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 4,
+       "y": 4,
+       "kind": "seat",
+       "seat": "3D"
+      },
+      {
+       "x": 4,
+       "y": 5,
+       "kind": "seat",
+       "seat": "3E"
+      },
+      {
+       "x": 5,
+       "y": 0,
+       "kind": "seat",
+       "seat": "4A"
+      },
+      {
+       "x": 5,
+       "y": 1,
+       "kind": "seat",
+       "seat": "4B"
+      },
+      {
+       "x": 5,
+       "y": 2,
+       "kind": "seat",
+       "seat": "4C"
+      },
+      {
+       "x": 5,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 5,
+       "y": 4,
+       "kind": "seat",
+       "seat": "4D"
+      },
+      {
+       "x": 5,
+       "y": 5,
+       "kind": "seat",
+       "seat": "4E"
+      },
+      {
+       "x": 6,
+       "y": 0,
+       "kind": "seat",
+       "seat": "5A"
+      },
+      {
+       "x": 6,
+       "y": 1,
+       "kind": "seat",
+       "seat": "5B"
+      },
+      {
+       "x": 6,
+       "y": 2,
+       "kind": "seat",
+       "seat": "5C"
+      },
+      {
+       "x": 6,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 6,
+       "y": 4,
+       "kind": "seat",
+       "seat": "5D"
+      },
+      {
+       "x": 6,
+       "y": 5,
+       "kind": "seat",
+       "seat": "5E"
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "kind": "seat",
+       "seat": "6A"
+      },
+      {
+       "x": 7,
+       "y": 1,
+       "kind": "seat",
+       "seat": "6B"
+      },
+      {
+       "x": 7,
+       "y": 2,
+       "kind": "seat",
+       "seat": "6C"
+      },
+      {
+       "x": 7,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 7,
+       "y": 4,
+       "kind": "seat",
+       "seat": "6D"
+      },
+      {
+       "x": 7,
+       "y": 5,
+       "kind": "seat",
+       "seat": "6E"
+      },
+      {
+       "x": 8,
+       "y": 0,
+       "kind": "seat",
+       "seat": "7A"
+      },
+      {
+       "x": 8,
+       "y": 1,
+       "kind": "seat",
+       "seat": "7B"
+      },
+      {
+       "x": 8,
+       "y": 2,
+       "kind": "seat",
+       "seat": "7C"
+      },
+      {
+       "x": 8,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 8,
+       "y": 4,
+       "kind": "seat",
+       "seat": "7D"
+      },
+      {
+       "x": 8,
+       "y": 5,
+       "kind": "seat",
+       "seat": "7E"
+      },
+      {
+       "x": 9,
+       "y": 0,
+       "kind": "seat",
+       "seat": "8A"
+      },
+      {
+       "x": 9,
+       "y": 1,
+       "kind": "seat",
+       "seat": "8B"
+      },
+      {
+       "x": 9,
+       "y": 2,
+       "kind": "seat",
+       "seat": "8C"
+      },
+      {
+       "x": 9,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 9,
+       "y": 4,
+       "kind": "seat",
+       "seat": "8D"
+      },
+      {
+       "x": 9,
+       "y": 5,
+       "kind": "seat",
+       "seat": "8E"
+      },
+      {
+       "x": 10,
+       "y": 0,
+       "kind": "seat",
+       "seat": "9A"
+      },
+      {
+       "x": 10,
+       "y": 1,
+       "kind": "seat",
+       "seat": "9B"
+      },
+      {
+       "x": 10,
+       "y": 2,
+       "kind": "seat",
+       "seat": "9C"
+      },
+      {
+       "x": 10,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 10,
+       "y": 4,
+       "kind": "seat",
+       "seat": "9D"
+      },
+      {
+       "x": 10,
+       "y": 5,
+       "kind": "seat",
+       "seat": "9E"
+      },
+      {
+       "x": 11,
+       "y": 0,
+       "kind": "seat",
+       "seat": "10A"
+      },
+      {
+       "x": 11,
+       "y": 1,
+       "kind": "seat",
+       "seat": "10B"
+      },
+      {
+       "x": 11,
+       "y": 2,
+       "kind": "seat",
+       "seat": "10C"
+      },
+      {
+       "x": 11,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 11,
+       "y": 4,
+       "kind": "seat",
+       "seat": "10D"
+      },
+      {
+       "x": 11,
+       "y": 5,
+       "kind": "seat",
+       "seat": "10E"
+      },
+      {
+       "x": 12,
+       "y": 0,
+       "kind": "luggage"
+      },
+      {
+       "x": 12,
+       "y": 1,
+       "kind": "luggage"
+      },
+      {
+       "x": 12,
+       "y": 2,
+       "kind": "luggage"
+      },
+      {
+       "x": 12,
+       "y": 3,
+       "kind": "aisle"
+      },
+      {
+       "x": 12,
+       "y": 4,
+       "kind": "luggage"
+      },
+      {
+       "x": 12,
+       "y": 5,
+       "kind": "luggage"
+      },
+      {
+       "x": 13,
+       "y": 0,
+       "kind": "vestibule"
+      },
+      {
+       "x": 13,
+       "y": 1,
+       "kind": "vestibule"
+      },
+      {
+       "x": 13,
+       "y": 2,
+       "kind": "vestibule"
+      },
+      {
+       "x": 13,
+       "y": 3,
+       "kind": "door"
+      },
+      {
+       "x": 13,
+       "y": 4,
+       "kind": "vestibule"
+      },
+      {
+       "x": 13,
+       "y": 5,
+       "kind": "vestibule"
+      }
+     ]
+    }
+   ]
+  },
+  "actors": [
+   {
+    "id": "a_conductor",
+    "name": "Проводник (вы)",
+    "role": "conductor",
+    "ticket": null,
+    "spawn": {
+     "carId": "car2",
+     "x": 1,
+     "y": 2
+    },
+    "mood": 100,
+    "steps": []
+   },
+   {
+    "id": "a_pet_owner",
+    "name": "Орлова",
+    "role": "passenger",
+    "ticket": {
+     "carId": "car2",
+     "seat": "4C"
+    },
+    "spawn": {
+     "carId": "car2",
+     "x": 11,
+     "y": 2
+    },
+    "mood": 70,
+    "steps": [
+     {
+      "type": "wait",
+      "seconds": 2
+     },
+     {
+      "type": "goto",
+      "target": {
+       "kind": "ownSeat"
+      }
+     },
+     {
+      "type": "sit"
+     },
+     {
+      "type": "say",
+      "text": "Бублик, сиди смирно."
+     },
+     {
+      "type": "wait",
+      "seconds": 3
+     },
+     {
+      "type": "emit",
+      "eventId": "ev_pet"
+     }
+    ]
+   },
+   {
+    "id": "a_drunk",
+    "name": "Кузнецов",
+    "role": "troublemaker",
+    "ticket": {
+     "carId": "car4",
+     "seat": "6B"
+    },
+    "spawn": {
+     "carId": "car4",
+     "x": 7,
+     "y": 1
+    },
+    "mood": 50,
+    "steps": [
+     {
+      "type": "sit"
+     },
+     {
+      "type": "wait",
+      "seconds": 30
+     },
+     {
+      "type": "goto",
+      "target": {
+       "kind": "cell",
+       "carId": "car4",
+       "x": 7,
+       "y": 3
+      }
+     },
+     {
+      "type": "say",
+      "text": "Эй! Где тут музыку погромче делают?!"
+     },
+     {
+      "type": "mood",
+      "delta": -20
+     },
+     {
+      "type": "emit",
+      "eventId": "ev_drunk"
+     }
+    ]
+   },
+   {
+    "id": "a_neighbour",
+    "name": "Смирнов",
+    "role": "passenger",
+    "ticket": {
+     "carId": "car4",
+     "seat": "6A"
+    },
+    "spawn": {
+     "carId": "car4",
+     "x": 7,
+     "y": 0
+    },
+    "mood": 80,
+    "steps": [
+     {
+      "type": "sit"
+     }
+    ]
+   },
+   {
+    "id": "a_np",
+    "name": "Начальник поезда",
+    "role": "conductor",
+    "ticket": null,
+    "spawn": {
+     "carId": "car3",
+     "x": 1,
+     "y": 2
+    },
+    "mood": 100,
+    "steps": []
+   },
+   {
+    "id": "a_ptb",
+    "name": "Сотрудник ПТБ",
+    "role": "conductor",
+    "ticket": null,
+    "spawn": {
+     "carId": "car3",
+     "x": 8,
+     "y": 2
+    },
+    "mood": 100,
+    "steps": []
+   },
+   {
+    "id": "a_headache",
+    "name": "Белова",
+    "role": "elderly",
+    "ticket": {
+     "carId": "car1",
+     "seat": "3B"
+    },
+    "spawn": {
+     "carId": "car1",
+     "x": 4,
+     "y": 2
+    },
+    "mood": 60,
+    "steps": [
+     {
+      "type": "sit"
+     },
+     {
+      "type": "wait",
+      "seconds": 68
+     },
+     {
+      "type": "mood",
+      "delta": -30
+     },
+     {
+      "type": "say",
+      "text": "Голова раскалывается…"
+     },
+     {
+      "type": "emit",
+      "eventId": "ev_medicine"
+     }
+    ]
+   }
+  ],
+  "events": [
+   {
+    "id": "ev_pet",
+    "title": "№4 · Питомец без переноски",
+    "category": "request",
+    "actorId": "a_pet_owner",
+    "trigger": {
+     "type": "actor"
+    },
+    "startNode": "p1",
+    "nodes": [
+     {
+      "id": "p1",
+      "speaker": "Пассажирка Орлова",
+      "text": "(у неё на коленях шпиц) Это Бублик, он спокойный. В переноске ему тесно — пусть посидит со мной, хорошо?",
+      "options": [
+       {
+        "id": "p1a",
+        "text": "«Я Вас понимаю, Бублик и правда спокойный. Давайте устроим его так, чтобы ему было безопасно в дороге»",
+        "next": "p2",
+        "effects": {
+         "loyalty": 5,
+         "safety": 0
+        },
+        "correct": true,
+        "feedback": "Начали с признания: пассажирка видит заботу о питомце, а не упрёк. Так методичка советует начинать разговор.",
+        "step": "acknowledge",
+        "set": {
+         "pet_ack": true
+        }
+       },
+       {
+        "id": "p1b",
+        "text": "«Обращаю Ваше внимание: провоз питомцев — только в переноске»",
+        "next": "p3",
+        "effects": {
+         "loyalty": -5,
+         "safety": 5
+        },
+        "feedback": "Правило верное, но названо без признания ситуации: пассажирка слышит упрёк. Ролевая модель добавляет штраф −10 к лояльности.",
+        "step": "rule",
+        "set": {
+         "pet_refused": true
+        }
+       },
+       {
+        "id": "p1c",
+        "text": "Разрешить держать собаку на коленях без переноски",
+        "next": "p7",
+        "effects": {
+         "loyalty": 5,
+         "safety": -15
+        },
+        "feedback": "Уступка нравится пассажирке, но нарушает условия провоза: собака без переноски — риск для неё и соседей.",
+        "set": {
+         "pet_loose": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "p2",
+      "speaker": "Пассажирка Орлова",
+      "text": "А это обязательно? Переноски у меня с собой нет.",
+      "options": [
+       {
+        "id": "p2a",
+        "text": "«Обращаю Ваше внимание, что провоз питомцев осуществляется только в переноске — это необходимо для безопасного нахождения питомцев на борту»",
+        "next": "p4",
+        "effects": {
+         "loyalty": 0,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Правило объяснено через безопасность самого питомца — без лишней информации, как советует методичка.",
+        "step": "rule",
+        "set": {
+         "rule_explained": true
+        }
+       },
+       {
+        "id": "p2b",
+        "text": "«Правила есть правила. Уберите собаку, или будем решать по-другому»",
+        "next": "p3",
+        "effects": {
+         "loyalty": -10,
+         "safety": 0
+        },
+        "feedback": "Правило подано как угроза. Пассажирка отказывается выполнять требование — это ветка с таймером.",
+        "step": "rule",
+        "set": {
+         "pet_refused": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "p3",
+      "speaker": "Пассажирка Орлова",
+      "text": "Не буду я его запихивать в коробку! Он никому не мешает!",
+      "timerSec": 20,
+      "options": [
+       {
+        "id": "p3a",
+        "text": "«Понимаю, что ситуация неприятная. Давайте найдём удобный для Бублика вариант»",
+        "next": "p4",
+        "effects": {
+         "loyalty": 5,
+         "safety": 0
+        },
+        "correct": true,
+        "feedback": "Вернулись к признанию ситуации — это снимает напряжение. К признанию можно вернуться в любой момент.",
+        "step": "acknowledge"
+       },
+       {
+        "id": "p3b",
+        "text": "«Для решения этого вопроса я приглашу начальника поезда»",
+        "next": "p5",
+        "effects": {
+         "loyalty": 0,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "При отказе методичка предписывает вызвать начальника поезда. Решение правильное, но разговор с пассажиркой не закрыт.",
+        "step": "solution",
+        "set": {
+         "np_called": true
+        }
+       },
+       {
+        "id": "p3c",
+        "text": "«Тогда на ближайшей станции Вас высадят»",
+        "next": null,
+        "effects": {
+         "loyalty": -15,
+         "safety": -5
+        },
+        "feedback": "Угроза — худший исход: конфликт не решён, собака всё ещё без переноски, пассажирка готовит жалобу.",
+        "set": {
+         "pet_threat": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "p7",
+       "effects": {
+        "loyalty": -5,
+        "safety": -10
+       },
+       "set": {
+        "pet_loose": true
+       },
+       "text": "Пока проводник молчал, Бублик спрыгнул и побежал по проходу"
+      }
+     },
+     {
+      "id": "p4",
+      "speaker": "Пассажирка Орлова",
+      "text": "И где я её возьму посреди поездки?",
+      "options": [
+       {
+        "id": "p4a",
+        "text": "«Вы можете приобрести переноску на борту нашего поезда. Я сейчас принесу её»",
+        "next": "p6",
+        "effects": {
+         "loyalty": 5,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Конкретное решение из методички: переноска продаётся на борту.",
+        "step": "solution",
+        "set": {
+         "carrier_offered": true
+        }
+       },
+       {
+        "id": "p4b",
+        "text": "«Это Ваши проблемы — надо было думать при покупке билета»",
+        "next": "p3",
+        "effects": {
+         "loyalty": -15,
+         "safety": 0
+        },
+        "feedback": "Решение переложено на пассажирку. Если она уже отказывалась, конфликт сразу уходит к начальнику поезда.",
+        "set": {
+         "pet_refused": true
+        },
+        "nextIf": [
+         {
+          "if": {
+           "flag": "pet_refused"
+          },
+          "next": "p5"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "p5",
+      "speaker": "Начальник поезда",
+      "text": "Подошёл. Что у вас происходит?",
+      "options": [
+       {
+        "id": "p5a",
+        "text": "Коротко доложить: пассажирка с питомцем без переноски, предлагаем приобрести переноску на борту",
+        "next": "p6",
+        "effects": {
+         "loyalty": 5,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Спокойный доклад по фактам при пассажирке, и сразу предложено решение.",
+        "step": "solution",
+        "set": {
+         "carrier_offered": true,
+         "np_called": true
+        }
+       },
+       {
+        "id": "p5b",
+        "text": "Пожаловаться начальнику поезда на пассажирку при ней",
+        "next": null,
+        "effects": {
+         "loyalty": -15,
+         "safety": 0
+        },
+        "feedback": "Обвинение при пассажирке ухудшает конфликт, а вопрос с переноской так и не решён.",
+        "set": {
+         "np_called": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "p6",
+      "speaker": "Пассажирка Орлова",
+      "text": "Ладно, несите вашу переноску.",
+      "options": [
+       {
+        "id": "p6a",
+        "text": "«Благодарю Вас за понимание! Бублику так будет спокойнее, а я загляну к вам позже»",
+        "next": null,
+        "effects": {
+         "loyalty": 10,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Разговор закрыт заверением: пассажирка понимает, что о ней заботятся.",
+        "step": "assure",
+        "set": {
+         "pet_resolved": true
+        }
+       },
+       {
+        "id": "p6b",
+        "text": "Молча отдать переноску и уйти",
+        "next": null,
+        "effects": {
+         "loyalty": -5,
+         "safety": 5
+        },
+        "feedback": "Проблема решена, но пассажирке не сказали ни слова благодарности — лояльность проседает.",
+        "set": {
+         "pet_resolved": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "p7",
+      "speaker": "Пассажир у прохода",
+      "text": "Эй! Собака под ногами, я чуть не упал!",
+      "timerSec": 15,
+      "options": [
+       {
+        "id": "p7a",
+        "text": "Помочь поймать собаку, убедиться, что никто не пострадал, и предложить хозяйке переноску",
+        "next": "p6",
+        "effects": {
+         "loyalty": 0,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Сначала безопасность людей в проходе, затем решение — переноска.",
+        "step": "solution",
+        "set": {
+         "carrier_offered": true
+        }
+       },
+       {
+        "id": "p7b",
+        "text": "Громко сделать замечание хозяйке на весь вагон",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": -5
+        },
+        "feedback": "Публичное замечание не убирает собаку из прохода и настраивает вагон против пассажирки."
+       }
+      ],
+      "onTimeout": {
+       "next": null,
+       "effects": {
+        "loyalty": -5,
+        "safety": -15
+       },
+       "set": {
+        "injury": true
+       },
+       "text": "Пассажир споткнулся о собаку в проходе"
+      }
+     }
+    ]
+   },
+   {
+    "id": "ev_drunk",
+    "title": "№6 · Пассажир с признаками опьянения",
+    "category": "conflict",
+    "actorId": "a_drunk",
+    "trigger": {
+     "type": "actor"
+    },
+    "startNode": "d1",
+    "nodes": [
+     {
+      "id": "d1",
+      "speaker": "Пассажир Кузнецов",
+      "text": "(громко, с запахом алкоголя) Командир! Сделай музыку погромче, мы тут отдыхаем!",
+      "timerSec": 15,
+      "options": [
+       {
+        "id": "d1a",
+        "text": "Подойти и спокойно оценить обстановку: «Я Вас понимаю, настроение отличное. Давайте я помогу Вам устроиться»",
+        "next": "d2",
+        "effects": {
+         "loyalty": 0,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Сначала оценка безопасности (агрессия, риск для него и соседей), без спора.",
+        "step": "acknowledge",
+        "set": {
+         "drunk_assessed": true
+        }
+       },
+       {
+        "id": "d1b",
+        "text": "«Вы пьяны! Немедленно успокойтесь, или Вас высадят»",
+        "next": "d3",
+        "effects": {
+         "loyalty": -15,
+         "safety": -15
+        },
+        "feedback": "Слово «пьяны» и угроза провоцируют агрессию — методичка прямо предупреждает об этом.",
+        "set": {
+         "drunk_provoked": true
+        }
+       },
+       {
+        "id": "d1c",
+        "text": "Не обращать внимания и продолжить обход",
+        "next": "d3",
+        "effects": {
+         "loyalty": -10,
+         "safety": -15
+        },
+        "feedback": "Бездействие: нарушитель остаётся без контроля, соседи не защищены."
+       }
+      ],
+      "onTimeout": {
+       "next": "d3",
+       "effects": {
+        "loyalty": -5,
+        "safety": -15
+       },
+       "set": {
+        "drunk_escalated": true
+       },
+       "text": "Пассажир начал задевать соседей"
+      }
+     },
+     {
+      "id": "d2",
+      "speaker": "Пассажир Кузнецов",
+      "text": "А чё такого? Я никому не мешаю!",
+      "timerSec": 15,
+      "options": [
+       {
+        "id": "d2a",
+        "text": "«Прошу Вас соблюдать спокойствие и не создавать неудобств другим пассажирам»",
+        "next": "d4",
+        "effects": {
+         "loyalty": 5,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Фраза из «Сервисного общения» №6: правило без оценки личности пассажира.",
+        "step": "rule"
+       },
+       {
+        "id": "d2b",
+        "text": "Вступить в спор: «Мешаете, и ещё как! Вот соседи жалуются»",
+        "next": "d3",
+        "effects": {
+         "loyalty": -10,
+         "safety": -10
+        },
+        "feedback": "Спор и ссылка на соседей переводят конфликт на них.",
+        "set": {
+         "drunk_provoked": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "d3",
+       "effects": {
+        "loyalty": 0,
+        "safety": -10
+       },
+       "set": {
+        "drunk_escalated": true
+       },
+       "text": "Пассажир встал и пошёл по вагону"
+      }
+     },
+     {
+      "id": "d3",
+      "speaker": "Пассажир Кузнецов",
+      "text": "(встаёт и толкает соседа) Да вы кто такие вообще, чтобы мне указывать?!",
+      "timerSec": 12,
+      "options": [
+       {
+        "id": "d3a",
+        "text": "Не вступать в спор, встать между пассажирами и пересадить Смирнова на свободное место",
+        "next": "d4",
+        "effects": {
+         "loyalty": 0,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Главное — безопасность других пассажиров: развести людей, не вступая в спор.",
+        "step": "solution",
+        "set": {
+         "neighbour_moved": true
+        }
+       },
+       {
+        "id": "d3b",
+        "text": "Попытаться вывести пассажира из вагона силой",
+        "next": "d4",
+        "effects": {
+         "loyalty": -10,
+         "safety": -20
+        },
+        "feedback": "Силовое вмешательство — прямой риск травм. Этим занимаются ПТБ и ЛОВД.",
+        "set": {
+         "used_force": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "d4",
+       "effects": {
+        "loyalty": -5,
+        "safety": -20
+       },
+       "set": {
+        "fight": true
+       },
+       "text": "Конфликт перешёл в потасовку"
+      }
+     },
+     {
+      "id": "d4",
+      "speaker": "Рация",
+      "text": "Нужно сообщить начальнику поезда. Пассажир стоит рядом и всё слышит. Что скажете в эфир?",
+      "timerSec": 15,
+      "options": [
+       {
+        "id": "d4a",
+        "text": "«Начальник поезда, прошу подойти в 4-й вагон: пассажир нарушает порядок, нужна ваша помощь»",
+        "next": "d5",
+        "effects": {
+         "loyalty": 5,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "В эфире нет слова «пьян» — пассажир не провоцируется, а НП получает точный адрес.",
+        "step": "solution",
+        "set": {
+         "np_called": true
+        }
+       },
+       {
+        "id": "d4b",
+        "text": "«В четвёртом пьяный буянит, срочно сюда»",
+        "next": "d5",
+        "effects": {
+         "loyalty": -10,
+         "safety": -15
+        },
+        "feedback": "Пассажир слышит, что его называют пьяным, и агрессия растёт.",
+        "set": {
+         "np_called": true,
+         "drunk_provoked": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "d5",
+       "effects": {
+        "loyalty": 0,
+        "safety": -10
+       },
+       "set": {
+        "np_late": true
+       },
+       "text": "Начальник поезда узнал о ситуации от других пассажиров"
+      }
+     },
+     {
+      "id": "d5",
+      "speaker": "Начальник поезда",
+      "text": "Иду. Оставайтесь рядом, следите за соседями и оборудованием.",
+      "options": [
+       {
+        "id": "d5a",
+        "text": "Заверить Смирнова: «Благодарю Вас за понимание. Вы в безопасности, я рядом»",
+        "next": null,
+        "effects": {
+         "loyalty": 10,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Соседа уже пересадили — осталось его заверить.",
+        "step": "assure",
+        "if": {
+         "flag": "neighbour_moved"
+        }
+       },
+       {
+        "id": "d5b",
+        "text": "Заверить соседей: «Всё под контролем, начальник поезда уже идёт. Если хотите, пересажу Вас»",
+        "next": null,
+        "effects": {
+         "loyalty": 10,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Заверение с предложением пересадки: соседи защищены, конфликт не разрастается.",
+        "step": "assure",
+        "set": {
+         "neighbour_moved": true
+        },
+        "if": {
+         "flag": "neighbour_moved",
+         "eq": false
+        }
+       },
+       {
+        "id": "d5c",
+        "text": "Уйти в служебное купе — пусть начальник поезда разбирается сам",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": -10
+        },
+        "feedback": "Методичка требует быть внимательным к другим пассажирам и оборудованию до прихода НП.",
+        "set": {
+         "left_post": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ev_medicine",
+    "title": "№28 · Просьба дать лекарство",
+    "category": "medical",
+    "actorId": "a_headache",
+    "trigger": {
+     "type": "actor"
+    },
+    "startNode": "m1",
+    "nodes": [
+     {
+      "id": "m1",
+      "speaker": "Пассажирка Белова",
+      "text": "Простите, у Вас не найдётся таблетки от головы? Раскалывается.",
+      "options": [
+       {
+        "id": "m1a",
+        "text": "«Сожалею, что Вам нехорошо. Подскажите, что беспокоит? Бывало ли такое раньше?»",
+        "next": "m2",
+        "effects": {
+         "loyalty": 5,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Методичка: сначала выяснить причину недомогания.",
+        "step": "acknowledge",
+        "set": {
+         "cause_asked": true
+        }
+       },
+       {
+        "id": "m1b",
+        "text": "Дать таблетку из своей аптечки",
+        "next": "m3",
+        "effects": {
+         "loyalty": 5,
+         "safety": -20
+        },
+        "feedback": "Личные лекарства выдавать нельзя: реакция на препарат неизвестна, а ответственность ляжет на проводника.",
+        "set": {
+         "gave_pills": true
+        }
+       },
+       {
+        "id": "m1c",
+        "text": "«Лекарств нет» — и продолжить обход",
+        "next": "m4",
+        "effects": {
+         "loyalty": -10,
+         "safety": -10
+        },
+        "feedback": "Отказ без помощи — это бездействие. Пассажирке становится хуже.",
+        "set": {
+         "ignored": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "m2",
+      "speaker": "Пассажирка Белова",
+      "text": "Бывает, давление скачет. Так таблетку дадите?",
+      "options": [
+       {
+        "id": "m2a",
+        "text": "«Сожалею, но на борту отсутствуют медикаменты. Позвольте предложить Вам воду или чай»",
+        "next": "m3",
+        "effects": {
+         "loyalty": 5,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Дословно по «Сервисному общению» №28: отказ сразу вместе с альтернативой.",
+        "step": "rule",
+        "set": {
+         "water_offered": true
+        }
+       },
+       {
+        "id": "m2b",
+        "text": "Попросить коллегу поискать таблетку",
+        "next": "m3",
+        "effects": {
+         "loyalty": 0,
+         "safety": -15
+        },
+        "feedback": "Методичка запрещает привлекать коллег к выдаче лекарств.",
+        "set": {
+         "gave_pills": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "m3",
+      "speaker": "Пассажирка Белова",
+      "text": "Спасибо… но легче не становится.",
+      "options": [
+       {
+        "id": "m3a",
+        "text": "Уведомить начальника поезда и объявить по громкой связи поиск медработника среди пассажиров",
+        "next": "m5",
+        "effects": {
+         "loyalty": 5,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Действие через НП и медиков — единственный правильный канал помощи.",
+        "step": "solution",
+        "set": {
+         "np_called": true,
+         "medic_called": true
+        },
+        "if": {
+         "flag": "gave_pills",
+         "eq": false
+        }
+       },
+       {
+        "id": "m3b",
+        "text": "Сообщить начальнику поезда и медработнику, какой препарат уже дали пассажирке",
+        "next": "m5",
+        "effects": {
+         "loyalty": 0,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Ошибку не скрыли: медику нужно знать, что уже принято.",
+        "step": "solution",
+        "set": {
+         "np_called": true,
+         "medic_called": true
+        },
+        "if": {
+         "flag": "gave_pills"
+        }
+       },
+       {
+        "id": "m3c",
+        "text": "«Подождите, само пройдёт»",
+        "next": "m4",
+        "effects": {
+         "loyalty": -5,
+         "safety": -10
+        },
+        "feedback": "Ожидание без контроля состояния — бездействие.",
+        "set": {
+         "ignored": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "m4",
+      "speaker": "Сосед Беловой",
+      "text": "Проводник! Ей совсем плохо — побледнела, не может сидеть!",
+      "timerSec": 20,
+      "options": [
+       {
+        "id": "m4a",
+        "text": "Остаться рядом, усадить удобнее, дать воды; сообщить начальнику поезда и объявить поиск медработника",
+        "next": "m5",
+        "effects": {
+         "loyalty": 5,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Быть рядом, проявить сочувствие и сразу подключить НП и медиков.",
+        "step": "solution",
+        "set": {
+         "np_called": true,
+         "medic_called": true
+        }
+       },
+       {
+        "id": "m4b",
+        "text": "Срочно дать таблетку из своей аптечки",
+        "next": "m5",
+        "effects": {
+         "loyalty": 0,
+         "safety": -20
+        },
+        "feedback": "В ухудшении личные лекарства ещё опаснее: неизвестен диагноз.",
+        "set": {
+         "gave_pills": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "m6",
+       "effects": {
+        "loyalty": -10,
+        "safety": -20
+       },
+       "set": {
+        "collapsed": true
+       },
+       "text": "Пассажирка потеряла сознание, помощь запоздала"
+      }
+     },
+     {
+      "id": "m5",
+      "speaker": "Начальник поезда",
+      "text": "Медработник найден, скорая будет встречать на ближайшей станции через 9 минут.",
+      "options": [
+       {
+        "id": "m5a",
+        "text": "«Я рядом, помощь уже идёт. Благодарю Вас за ожидание»",
+        "next": null,
+        "effects": {
+         "loyalty": 10,
+         "safety": 5
+        },
+        "correct": true,
+        "feedback": "Заверить и остаться рядом до прихода медика.",
+        "step": "assure"
+       },
+       {
+        "id": "m5b",
+        "text": "Вернуться к обходу вагонов",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": -5
+        },
+        "feedback": "Пассажирку оставили одну до прихода помощи.",
+        "set": {
+         "left_post": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "m6",
+      "speaker": "Начальник поезда",
+      "text": "Пассажирка без сознания! Действуйте!",
+      "options": [
+       {
+        "id": "m6a",
+        "text": "Объявить вызов медработника по громкой связи, уложить пассажирку, контролировать дыхание до прихода помощи",
+        "next": null,
+        "effects": {
+         "loyalty": 0,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Алгоритм: безопасность → доклад → медик. Потерянное время уже сказалось на шкалах.",
+        "step": "solution",
+        "set": {
+         "medic_called": true
+        }
+       },
+       {
+        "id": "m6b",
+        "text": "Ждать начальника поезда",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": -10
+        },
+        "feedback": "Ожидание в экстренной ситуации недопустимо."
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ev_complaint",
+    "title": "Жалоба начальнику поезда",
+    "category": "request",
+    "actorId": null,
+    "trigger": {
+     "type": "condition",
+     "if": {
+      "loyalty": {
+       "lt": 30
+      }
+     }
+    },
+    "startNode": "c1",
+    "nodes": [
+     {
+      "id": "c1",
+      "speaker": "Начальник поезда",
+      "text": "Пассажир оставил жалобу на обслуживание. Как будете исправлять ситуацию?",
+      "options": [
+       {
+        "id": "c1a",
+        "text": "Лично подойти к пассажиру: «Я сожалею, что это доставило Вам дискомфорт. Расскажите, что именно Вас не устроило»",
+        "next": "c2",
+        "effects": {
+         "loyalty": 10,
+         "safety": 0
+        },
+        "correct": true,
+        "feedback": "Жалобу закрывают признанием, а не оправданием.",
+        "step": "acknowledge"
+       },
+       {
+        "id": "c1b",
+        "text": "Объяснить начальнику поезда, что пассажир сам виноват",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": 0
+        },
+        "feedback": "Оправдание перед НП не возвращает доверие пассажира: жалоба уходит выше.",
+        "set": {
+         "complaint_escalated": true
+        }
+       }
+      ]
+     },
+     {
+      "id": "c2",
+      "speaker": "Пассажир",
+      "text": "Ну, хоть кто-то выслушал.",
+      "options": [
+       {
+        "id": "c2a",
+        "text": "Предложить решение по сути претензии и заверить, что вопрос на контроле до конца поездки",
+        "next": null,
+        "effects": {
+         "loyalty": 10,
+         "safety": 0
+        },
+        "correct": true,
+        "feedback": "Заверение с конкретикой переводит жалобу в благодарность.",
+        "step": "assure",
+        "set": {
+         "complaint_resolved": true
+        }
+       },
+       {
+        "id": "c2b",
+        "text": "«Хорошо, передам куда надо»",
+        "next": null,
+        "effects": {
+         "loyalty": -5,
+         "safety": 0
+        },
+        "feedback": "Формальный ответ без решения — пассажир остаётся недоволен."
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ev_ptb",
+    "title": "Вызов сотрудников ПТБ",
+    "category": "technical",
+    "actorId": null,
+    "trigger": {
+     "type": "condition",
+     "if": {
+      "safety": {
+       "lt": 40
+      }
+     }
+    },
+    "startNode": "t1",
+    "nodes": [
+     {
+      "id": "t1",
+      "speaker": "Начальник поезда",
+      "text": "Безопасность в составе под угрозой — вызываю сотрудников ПТБ. Ваши действия до их прихода?",
+      "timerSec": 15,
+      "options": [
+       {
+        "id": "t1a",
+        "text": "Обеспечить безопасность: освободить проход, отсадить пассажиров, не вступать в контакт с нарушителем, следить за оборудованием",
+        "next": "t2",
+        "effects": {
+         "loyalty": 5,
+         "safety": 15
+        },
+        "correct": true,
+        "feedback": "До прихода ПТБ проводник отвечает за безопасность остальных пассажиров, а не за задержание.",
+        "step": "solution",
+        "set": {
+         "ptb_called": true
+        }
+       },
+       {
+        "id": "t1b",
+        "text": "Самому удерживать нарушителя до прихода ПТБ",
+        "next": "t2",
+        "effects": {
+         "loyalty": -5,
+         "safety": -15
+        },
+        "feedback": "Силовые действия — зона ответственности ПТБ и ЛОВД.",
+        "set": {
+         "ptb_called": true,
+         "used_force": true
+        }
+       }
+      ],
+      "onTimeout": {
+       "next": "t2",
+       "effects": {
+        "loyalty": -5,
+        "safety": -10
+       },
+       "set": {
+        "ptb_called": true
+       },
+       "text": "ПТБ прибыли без информации от проводника"
+      }
+     },
+     {
+      "id": "t2",
+      "speaker": "Сотрудник ПТБ",
+      "text": "Что произошло? Коротко.",
+      "options": [
+       {
+        "id": "t2a",
+        "text": "Изложить факты без оценок: место, время, что делал пассажир, какие меры приняты",
+        "next": null,
+        "effects": {
+         "loyalty": 5,
+         "safety": 10
+        },
+        "correct": true,
+        "feedback": "Доклад по фактам без ярлыков — так ПТБ быстрее принимает решение."
+       },
+       {
+        "id": "t2b",
+        "text": "Эмоционально пересказать, громко назвать пассажира пьяным при всех",
+        "next": null,
+        "effects": {
+         "loyalty": -10,
+         "safety": -5
+        },
+        "feedback": "Ярлыки при пассажирах провоцируют новый конфликт."
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "durationSec": 180,
+  "initial": {
+   "loyalty": 70,
+   "safety": 80
+  }
+ }
+}

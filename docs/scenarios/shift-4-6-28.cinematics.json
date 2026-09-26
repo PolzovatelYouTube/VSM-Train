@@ -1,0 +1,1029 @@
+{
+ "version": 1,
+ "scenario": "shift-4-6-28",
+ "backgrounds": {
+  "interior_2x2_table": {
+   "src": "Датасет/photo_2026-09-20_15-10-04.jpg",
+   "classes": [
+    "business",
+    "comfort"
+   ],
+   "fit": "cover",
+   "note": "точная компоновка 2+2 со столом"
+  },
+  "interior_generic": {
+   "src": "Датасет/photo_2026-09-20_15-10-05.jpg",
+   "classes": [
+    "first",
+    "standard",
+    "bistro"
+   ],
+   "fit": "cover",
+   "filter": "blur(6px) brightness(0.8)",
+   "note": "атмосферный фон, ряд не показывается"
+  },
+  "exterior": {
+   "src": "Датасет/<рендер поезда снаружи>",
+   "use": [
+    "intro",
+    "outro"
+   ]
+  }
+ },
+ "events": {
+  "ev_pet": {
+   "background": "interior_2x2_table",
+   "actor": "a_pet_owner",
+   "enterShot": "wide",
+   "focusShot": "medium"
+  },
+  "ev_drunk": {
+   "background": "interior_generic",
+   "actor": "a_drunk",
+   "enterShot": "wide",
+   "focusShot": "medium"
+  },
+  "ev_medicine": {
+   "background": "interior_generic",
+   "actor": "a_headache",
+   "enterShot": "wide",
+   "focusShot": "medium"
+  },
+  "ev_complaint": {
+   "background": "interior_generic",
+   "actor": "a_np",
+   "enterShot": "wide",
+   "focusShot": "medium"
+  },
+  "ev_ptb": {
+   "background": "interior_generic",
+   "actor": "a_ptb",
+   "enterShot": "wide",
+   "focusShot": "medium"
+  }
+ },
+ "hiddenUntil": {
+  "a_ptb": {
+   "flag": "ptb_called"
+  }
+ },
+ "cues": {
+  "p1a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Орлова улыбается и гладит собаку; камера переходит на средний план"
+  },
+  "p1b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова прижимает собаку к себе, отворачивается к окну"
+  },
+  "p1c": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Проводник уходит; через секунду собака спрыгивает в проход",
+   "map": [
+    {
+     "prop": "dog",
+     "at": {
+      "carId": "car2",
+      "x": 6,
+      "y": 2
+     }
+    }
+   ]
+  },
+  "p2a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Орлова задумчиво кивает"
+  },
+  "p2b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова резко отвечает, соседи оборачиваются"
+  },
+  "p3a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Орлова выдыхает, опускает плечи"
+  },
+  "p3b": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Проводник говорит в рацию; на CarMap значок НП идёт к вагону 2",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car2",
+        "x": 5,
+        "y": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "p3c": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова достаёт телефон и начинает писать жалобу",
+   "map": [
+    {
+     "actorId": "a_pet_owner",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -30
+      },
+      {
+       "type": "say",
+       "text": "Я напишу жалобу!"
+      }
+     ]
+    }
+   ]
+  },
+  "p3:timeout": {
+   "event": "ev_pet",
+   "shot": "wide",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Пока проводник молчал, Бублик спрыгнул и побежал по проходу",
+   "fx": "timeout",
+   "map": [
+    {
+     "prop": "dog",
+     "at": {
+      "carId": "car2",
+      "x": 6,
+      "y": 2
+     }
+    }
+   ]
+  },
+  "p4a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Проводник уходит в бистро и возвращается с переноской",
+   "map": [
+    {
+     "prop": "carrier",
+     "at": {
+      "carId": "car2",
+      "x": 5,
+      "y": 3
+     }
+    }
+   ]
+  },
+  "p4b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова повышает голос: «Позовите начальника!»",
+   "map": [
+    {
+     "actorId": "a_pet_owner",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -20
+      },
+      {
+       "type": "say",
+       "text": "Позовите начальника!"
+      }
+     ]
+    }
+   ]
+  },
+  "p5a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "НП кивает Орловой; проводник приносит переноску",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "wait",
+       "seconds": 3
+      },
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car3",
+        "x": 1,
+        "y": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "p5b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова демонстративно отворачивается; НП хмурится",
+   "map": [
+    {
+     "actorId": "a_pet_owner",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -20
+      }
+     ]
+    }
+   ]
+  },
+  "p6a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Бублик в переноске у ног; Орлова улыбается",
+   "map": [
+    {
+     "actorId": "a_pet_owner",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": 20
+      },
+      {
+       "type": "say",
+       "text": "Спасибо!"
+      }
+     ]
+    }
+   ]
+  },
+  "p6b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Орлова пожимает плечами; собака в переноске"
+  },
+  "p7a": {
+   "event": "ev_pet",
+   "shot": "medium",
+   "pose": {
+    "a_pet_owner": "happy"
+   },
+   "caption": "Проводник приседает, берёт собаку; проход свободен",
+   "map": [
+    {
+     "prop": "dog",
+     "remove": true
+    },
+    {
+     "prop": "carrier",
+     "at": {
+      "carId": "car2",
+      "x": 5,
+      "y": 3
+     }
+    }
+   ]
+  },
+  "p7b": {
+   "event": "ev_pet",
+   "shot": "close",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Весь вагон оборачивается; собака всё ещё в проходе"
+  },
+  "p7:timeout": {
+   "event": "ev_pet",
+   "shot": "wide",
+   "pose": {
+    "a_pet_owner": "angry"
+   },
+   "caption": "Пассажир споткнулся о собаку в проходе",
+   "fx": "timeout",
+   "map": [
+    {
+     "actorId": "a_pet_owner",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -15
+      }
+     ]
+    }
+   ]
+  },
+  "d1a": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Проводник встаёт в проходе рядом; Кузнецов садится",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 7,
+        "y": 1
+       }
+      },
+      {
+       "type": "sit"
+      }
+     ]
+    }
+   ]
+  },
+  "d1b": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Кузнецов вскакивает, красный ореол опасности",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -20
+      },
+      {
+       "type": "say",
+       "text": "Кто пьяный?!"
+      }
+     ]
+    }
+   ]
+  },
+  "d1c": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Проводник уходит; Кузнецов встаёт и идёт к соседям",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 7,
+        "y": 3
+       }
+      },
+      {
+       "type": "say",
+       "text": "Музыку!"
+      }
+     ]
+    }
+   ]
+  },
+  "d1:timeout": {
+   "event": "ev_drunk",
+   "shot": "wide",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Пассажир начал задевать соседей",
+   "fx": "timeout"
+  },
+  "d2a": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Кузнецов бурчит, но остаётся на месте",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": 10
+      }
+     ]
+    }
+   ]
+  },
+  "d2b": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Кузнецов поворачивается к Смирнову",
+   "map": [
+    {
+     "actorId": "a_neighbour",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -20
+      }
+     ]
+    }
+   ]
+  },
+  "d2:timeout": {
+   "event": "ev_drunk",
+   "shot": "wide",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Пассажир встал и пошёл по вагону",
+   "fx": "timeout"
+  },
+  "d3a": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Смирнов переходит на 9D (CarMap: реальное перемещение)",
+   "map": [
+    {
+     "actorId": "a_neighbour",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "seat",
+        "carId": "car4",
+        "seat": "9D"
+       }
+      },
+      {
+       "type": "sit"
+      },
+      {
+       "type": "mood",
+       "delta": 10
+      }
+     ]
+    }
+   ]
+  },
+  "d3b": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Толкотня в проходе, камера трясётся",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -30
+      }
+     ]
+    }
+   ]
+  },
+  "d3:timeout": {
+   "event": "ev_drunk",
+   "shot": "wide",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Конфликт перешёл в потасовку",
+   "fx": "timeout"
+  },
+  "d4a": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Иконка рации; на CarMap НП идёт в вагон 4",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 8,
+        "y": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "d4b": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Кузнецов оборачивается на рацию: «Кто пьяный?!»",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 8,
+        "y": 3
+       }
+      }
+     ]
+    },
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "say",
+       "text": "Кто пьяный?!"
+      }
+     ]
+    }
+   ]
+  },
+  "d4:timeout": {
+   "event": "ev_drunk",
+   "shot": "wide",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Начальник поезда узнал о ситуации от других пассажиров",
+   "fx": "timeout"
+  },
+  "d5a": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Смирнов кивает с нового места"
+  },
+  "d5b": {
+   "event": "ev_drunk",
+   "shot": "medium",
+   "pose": {
+    "a_drunk": "happy"
+   },
+   "caption": "Смирнов пересаживается на 9D",
+   "map": [
+    {
+     "actorId": "a_neighbour",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "seat",
+        "carId": "car4",
+        "seat": "9D"
+       }
+      },
+      {
+       "type": "sit"
+      }
+     ]
+    }
+   ]
+  },
+  "d5c": {
+   "event": "ev_drunk",
+   "shot": "close",
+   "pose": {
+    "a_drunk": "angry"
+   },
+   "caption": "Проводник уходит; Кузнецов снова встаёт",
+   "map": [
+    {
+     "actorId": "a_drunk",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 8,
+        "y": 3
+       }
+      },
+      {
+       "type": "say",
+       "text": "И чё?"
+      }
+     ]
+    }
+   ]
+  },
+  "m1a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Проводник присаживается рядом, крупный план Беловой"
+  },
+  "m1b": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Крупный план: блистер в руке проводника, тревожный звук"
+  },
+  "m1c": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Проводник уходит; Белова закрывает глаза"
+  },
+  "m2a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "На столике появляется стакан воды",
+   "map": [
+    {
+     "prop": "water",
+     "at": {
+      "carId": "car1",
+      "x": 4,
+      "y": 2
+     }
+    }
+   ]
+  },
+  "m2b": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Коллега приносит таблетку; тревожный звук"
+  },
+  "m3a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Громкая связь, волна звука по CarMap",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car1",
+        "x": 4,
+        "y": 1
+       }
+      }
+     ]
+    },
+    {
+     "fx": "announce",
+     "carId": "all"
+    }
+   ]
+  },
+  "m3b": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Проводник по рации называет препарат",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car1",
+        "x": 4,
+        "y": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "m3c": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Проводник уходит; свет в сцене тускнеет"
+  },
+  "m4a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Проводник рядом; на CarMap НП идёт в вагон 1",
+   "map": [
+    {
+     "actorId": "a_np",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car1",
+        "x": 4,
+        "y": 1
+       }
+      }
+     ]
+    },
+    {
+     "fx": "announce",
+     "carId": "all"
+    }
+   ]
+  },
+  "m4b": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Блистер; красная вспышка шкалы безопасности"
+  },
+  "m4:timeout": {
+   "event": "ev_medicine",
+   "shot": "wide",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Пассажирка потеряла сознание, помощь запоздала",
+   "fx": "timeout",
+   "map": [
+    {
+     "actorId": "a_headache",
+     "steps": [
+      {
+       "type": "mood",
+       "delta": -30
+      }
+     ]
+    }
+   ]
+  },
+  "m5a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Белова благодарно кивает; тёплый свет"
+  },
+  "m5b": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Проводник уходит; Белова одна"
+  },
+  "m6a": {
+   "event": "ev_medicine",
+   "shot": "medium",
+   "pose": {
+    "a_headache": "relieved"
+   },
+   "caption": "Громкая связь; медик идёт по CarMap",
+   "map": [
+    {
+     "fx": "announce",
+     "carId": "all"
+    }
+   ]
+  },
+  "m6b": {
+   "event": "ev_medicine",
+   "shot": "close",
+   "pose": {
+    "a_headache": "sick"
+   },
+   "caption": "Сцена затемняется"
+  },
+  "c1a": {
+   "event": "ev_complaint",
+   "shot": "medium",
+   "pose": {
+    "a_np": "happy"
+   },
+   "caption": "Экран жалобы: бланк исчезает, камера переходит к пассажиру"
+  },
+  "c1b": {
+   "event": "ev_complaint",
+   "shot": "close",
+   "pose": {
+    "a_np": "angry"
+   },
+   "caption": "Бланк жалобы получает красный штамп «эскалация»"
+  },
+  "c2a": {
+   "event": "ev_complaint",
+   "shot": "medium",
+   "pose": {
+    "a_np": "happy"
+   },
+   "caption": "Штамп «урегулировано»"
+  },
+  "c2b": {
+   "event": "ev_complaint",
+   "shot": "close",
+   "pose": {
+    "a_np": "angry"
+   },
+   "caption": "Пассажир машет рукой"
+  },
+  "t1a": {
+   "event": "ev_ptb",
+   "shot": "medium",
+   "pose": {
+    "a_ptb": "happy"
+   },
+   "caption": "CarMap: проход подсвечивается зелёным, пассажиры отсажены",
+   "map": [
+    {
+     "actorId": "a_ptb",
+     "show": true,
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 6,
+        "y": 3
+       }
+      }
+     ]
+    },
+    {
+     "actorId": "a_neighbour",
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "seat",
+        "carId": "car4",
+        "seat": "9D"
+       }
+      },
+      {
+       "type": "sit"
+      }
+     ]
+    }
+   ]
+  },
+  "t1b": {
+   "event": "ev_ptb",
+   "shot": "close",
+   "pose": {
+    "a_ptb": "angry"
+   },
+   "caption": "Толкотня, камера трясётся",
+   "map": [
+    {
+     "actorId": "a_ptb",
+     "show": true,
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 6,
+        "y": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "t1:timeout": {
+   "event": "ev_ptb",
+   "shot": "wide",
+   "pose": {
+    "a_ptb": "angry"
+   },
+   "caption": "ПТБ прибыли без информации от проводника",
+   "fx": "timeout",
+   "map": [
+    {
+     "actorId": "a_ptb",
+     "show": true,
+     "steps": [
+      {
+       "type": "goto",
+       "target": {
+        "kind": "cell",
+        "carId": "car4",
+        "x": 6,
+        "y": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "t2a": {
+   "event": "ev_ptb",
+   "shot": "medium",
+   "pose": {
+    "a_ptb": "happy"
+   },
+   "caption": "ПТБ кивает, ситуация под контролем"
+  },
+  "t2b": {
+   "event": "ev_ptb",
+   "shot": "close",
+   "pose": {
+    "a_ptb": "angry"
+   },
+   "caption": "Пассажиры снимают на телефон"
+  }
+ }
+}
