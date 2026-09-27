@@ -267,7 +267,8 @@ function resolveSeatFacing(
     const cell = cellAt(car, Math.round(actor.x), Math.round(actor.y));
     const seat = cell?.seat ? mesh.seats[cell.seat] : undefined;
 
-    return seat?.facing ?? (seat ? mesh.seatFacing : undefined);
+    if (!cell?.seat) return undefined;
+    return seat?.facing ?? mesh.seatFacingOverrides?.[cell.seat] ?? (seat ? mesh.seatFacing : undefined);
 }
 
 export function projectGameScene(data: ScenarioData, sim: SimState, opts: ProjectOptions = {}): GameSceneModel {

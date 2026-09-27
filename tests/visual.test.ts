@@ -91,11 +91,12 @@ describe("пресеты спрайтов", () => {
     expect(resolvePreset({ id: "fomin", name: "Фомин", role: "elderly" })).toBe("elderly-m");
   });
 
-  it("не подставляет PNG противоположного пола", () => {
-    expect(characterImageFrame("passenger-f", "idle", false, false)).toBeUndefined();
+  it("сопоставляет все старые пресеты текущему набору PNG", () => {
+    expect(characterImageFrame("passenger-f", "idle", false, false)?.src).toContain("passenger_male_stand.png");
     expect(characterImageFrame("passenger-m", "idle", false, false)?.src).toContain("passenger_male_stand.png");
     expect(characterImageFrame("elderly-f", "idle", false, false)?.src).toContain("elderly_woman_stand.png");
-    expect(characterImageFrame("elderly-m", "idle", false, false)).toBeUndefined();
+    expect(characterImageFrame("elderly-m", "idle", false, false)?.src).toContain("elderly_woman_stand.png");
+    expect(characterImageFrame("troublemaker", "idle", false, false)?.src).toContain("passenger_male_stand.png");
   });
 
   it("пресет пассажира стабилен для одного id", () => {
@@ -150,6 +151,21 @@ describe("projectGameScene", () => {
     const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
     expect(sceneActor?.placement).toEqual({ x: 63.9, y: 30.2, zIndex: 73 });
     expect(sceneActor?.facing).toBe("left");
+  });
+
+  it("сажает Соколову на месте 9B лицом вправо", () => {
+    const data = demoScenario();
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "9B")!;
+    const s = createSim(data);
+    const actor = s.actors.find((a) => a.id === "a_elderly")!;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.seated = true;
+    actor.path = [];
+
+    const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
+    expect(sceneActor?.facing).toBe("right");
   });
 
   it("dialogue: фокус на Громове, он говорит, остальные приглушены", () => {
