@@ -162,11 +162,11 @@ export interface SeatOcclusionPreset {
 }
 
 export const SEAT_OCCLUSION: Record<CarType, SeatOcclusionPreset> = {
-  first:    { halfWidthPct: 8.0, topOffsetPct: 2.0, heightPct: 5.0 },
-  business: { halfWidthPct: 8.0, topOffsetPct: 2.0, heightPct: 5.0 },
-  comfort:  { halfWidthPct: 8.4, topOffsetPct: 2.0, heightPct: 5.5 },
-  standard: { halfWidthPct: 8.4, topOffsetPct: 2.0, heightPct: 5.5 },
-  bistro:   { halfWidthPct: 8.4, topOffsetPct: 2.0, heightPct: 5.5 },
+  first:    { halfWidthPct: 3.0, topOffsetPct: 3.0, heightPct: 4 },
+  business: { halfWidthPct: 3.0, topOffsetPct: 3.0, heightPct: 4 },
+  comfort:  { halfWidthPct: 3.4, topOffsetPct: 3.0, heightPct: 4 },
+  standard: { halfWidthPct: 3.4, topOffsetPct: 3.0, heightPct: 4 },
+  bistro:   { halfWidthPct: 3.4, topOffsetPct: 3.0, heightPct: 4 },
 };
 
 /** Внешность пресетов спрайтов. Неизвестный пресет → FALLBACK_SPRITE (нейтральный силуэт). */
