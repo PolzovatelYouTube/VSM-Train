@@ -40,6 +40,7 @@ import {
   RECOMMENDATION_THRESHOLDS,
   ROLE_MODEL,
   PATIENCE_BY_CLASS,
+  PARALLEL_RESPONSE_WINDOW_BONUS,
 } from "./rules";
 
 export interface Waypoint {
@@ -91,6 +92,7 @@ export interface ActiveDialogue {
   openedAt: number; // sim-время открытия узла
   wallOpenedAt: number; // Date.now() для измерения реакции
   limitSec?: number; // таймер узла × терпение класса вагона; undefined = без таймера
+  baseLimitSec?: number; // исходный лимит до поправки на параллельные обращения
 }
 
 export interface RuntimeIncident {
@@ -111,6 +113,7 @@ export interface RiskEpisode {
   severity: number;
   urgency: "routine" | "urgent" | "critical";
   responseWindowSec: number;
+  baseResponseWindowSec: number;
   text: string;
   noticedAt?: number;
   responseAt?: number;
@@ -497,7 +500,7 @@ export function openNode(state: SimState, data: ScenarioData, eventId: string, n
     state.incidents[state.active.eventId].status = "waiting";
   const timer = effectiveNodeKind(node, state) === "decision" ? node.timerSec : undefined;
   const limitSec = timer ? Math.round(timer * patience(state, data, eventId).timer * 10) / 10 : undefined;
-  state.active = { eventId, nodeId, openedAt: state.t, wallOpenedAt: Date.now(), limitSec };
+  state.active = { eventId, nodeId, openedAt: state.t, wallOpenedAt: Date.now(), limitSec, baseLimitSec: limitSec };
   const incident = state.incidents[eventId];
   if (incident) {
     incident.triggeredAt ??= state.t;
@@ -605,7 +608,40 @@ function incidentPenalty(state: SimState, data: ScenarioData, incident: RuntimeI
   state.feed.push({ t: state.t, text: `${ev.title}: ${text}`, kind: "bad" });
 }
 
+function extendedWindow(baseSec: number, urgency: RiskEpisode["urgency"], openIncidents: number) {
+  const bonus = PARALLEL_RESPONSE_WINDOW_BONUS[urgency];
+  const extra = Math.min(bonus.maxSec, Math.max(0, openIncidents - 1) * bonus.perIncidentSec);
+  return baseSec + extra;
+}
+
+/**
+ * Когда одновременно ожидают несколько обращений, уже открытые решения не
+ * теряют срок: им выдаётся дополнительное время один раз и оно не отзывается
+ * после закрытия соседней ситуации. Критические инциденты не продлеваются.
+ */
+function extendWindowsForConcurrentIncidents(state: SimState) {
+  const open = Object.values(state.incidents).filter((incident) => incident.status === "waiting" || incident.status === "active");
+  if (open.length < 2) return;
+
+  for (const incident of open) {
+    const risk = incident.riskEpisodes.at(-1);
+    if (!risk) continue;
+    risk.responseWindowSec = Math.max(
+      risk.responseWindowSec,
+      extendedWindow(risk.baseResponseWindowSec ?? risk.responseWindowSec, risk.urgency, open.length),
+    );
+    const dialogue = incident.dialogue;
+    if (dialogue?.limitSec && (dialogue.baseLimitSec ?? dialogue.limitSec) >= 10) {
+      dialogue.limitSec = Math.max(
+        dialogue.limitSec,
+        extendedWindow(dialogue.baseLimitSec ?? dialogue.limitSec, risk.urgency, open.length),
+      );
+    }
+  }
+}
+
 function updateIncidents(state: SimState, data: ScenarioData) {
+  extendWindowsForConcurrentIncidents(state);
   for (const ev of data.events) {
     const incident = state.incidents[ev.id];
     if (incident.status !== "waiting" && incident.status !== "active") continue;
@@ -689,9 +725,10 @@ function syncIncidentRisk(state: SimState, data: ScenarioData, incident: Runtime
   const previous = incident.riskEpisodes.at(-1);
   if (previous?.key === key) return;
   if (previous) previous.endedAt = state.t;
+  const baseResponseWindowSec = rule?.responseWindowSec ?? ev.responseWindowSec ?? 30;
   const risk: RiskEpisode = { key, startedAt: state.t,
     severity: rule?.severity ?? ev.severity ?? 1, urgency: rule?.urgency ?? ev.urgency ?? "routine",
-    responseWindowSec: rule?.responseWindowSec ?? ev.responseWindowSec ?? 30,
+    responseWindowSec: baseResponseWindowSec, baseResponseWindowSec,
     text: rule?.text ?? findNode(data, ev.id, incident.dialogue?.nodeId ?? ev.startNode)?.text ?? ev.title,
     noticedAt: incident.status === "active" && state.active?.eventId === ev.id ? state.t : undefined };
   incident.riskEpisodes.push(risk);
@@ -1048,7 +1085,7 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
 
   const competencies = {
     communication: byCat(["conflict", "request"]),
-    safety: byCat(["medical", "technical"]),
+    safety: byCat(["medical", "technical", "security"]),
     speed,
     protocol: Math.round(accuracy * 100),
     roleModel: roleModelScore(log),

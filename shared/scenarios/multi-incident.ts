@@ -48,8 +48,8 @@ export function multiIncidentScenario(): ScenarioData {
         { id: "breathing-start", kind: "decision", speaker: "Пассажир", text: "Мне трудно дышать. Не могу закончить фразу.", options: [
           { id: "medical-stay", text: "Остаться рядом и попросить коллегу вызвать начальника поезда и медработника", timeCostSec: 3, next: null, effects: { loyalty: 2, safety: 8 }, correct: true,
             feedback: "Помощь организована, пассажир остаётся под наблюдением. Конкретные медицинские действия определяет медработник." },
-          { id: "medical-radio", text: "Сразу сообщить по рации и попросить соседа оставаться рядом до подхода персонала", timeCostSec: 1, next: null, effects: { loyalty: 0, safety: 5 }, correct: true,
-            feedback: "Сигнал передан быстрее, но непосредственное наблюдение временно поручено соседу." },
+          { id: "medical-radio", text: "Немедленно передать вызов по рации на поясе, одновременно подходя к пассажиру", timeCostSec: 1, next: null, effects: { loyalty: 0, safety: 5 }, correct: true,
+            feedback: "Сигнал передан по переносной рации без ухода от пассажира; проводник продолжает приближаться и наблюдать за его состоянием." },
         ] },
       ],
     },
@@ -64,7 +64,7 @@ export function multiIncidentScenario(): ScenarioData {
       ],
     },
     {
-      id: "unattended", title: "Бесхозная сумка у выхода", category: "technical", actorId: null,
+      id: "unattended", title: "Бесхозная сумка у выхода", category: "security", actorId: null,
       trigger: { type: "time", atSec: 45 }, urgency: "critical", severity: 5, responseWindowSec: 10,
       location: { carId: cars[2].id, x: 2, y: 3 },
       escalation: { afterSec: 10, effects: { loyalty: -2, safety: -12 }, set: { "security.item_touched": true },
@@ -88,6 +88,6 @@ export function multiIncidentScenario(): ScenarioData {
         ticket: { carId: cars[i === 2 ? 3 : i].id, seat: "3A" },
         spawn: { carId: cars[i === 2 ? 3 : i].id, x: 4, y: 0 }, mood: 60, steps: [],
       })),
-    ], durationSec: 65, initial: { loyalty: 65, safety: 70 },
+    ], durationSec: 100, initial: { loyalty: 65, safety: 70 },
   };
 }

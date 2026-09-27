@@ -4,15 +4,15 @@ export const SERVICE_BY_CLASS_EQUIPMENT_SCENARIO_NAME = "Сервис по кл�
 
 /**
  * Синтетический учебный кейс о классе обслуживания и дефицитном ресурсе.
- * quietArea — характеристика учебного вагона, а не утверждение о нормативном
- * оснащении реального ВСМ.
+ * В учебном составе нет выделенной тихой зоны: Business не подменяет
+ * переговорную, а рабочий звонок направляется в сервисный тамбур.
  */
 export function serviceByClassEquipmentScenario(): ScenarioData {
   const business = buildCar(1, "business", 6);
   const standard = buildCar(2, "standard", 8);
   business.availableSeats = 1;
   standard.availableSeats = 0;
-  business.capabilities = { quietArea: true, writtenCommunication: true };
+  business.capabilities = { writtenCommunication: true };
 
   const conductor = { id: "conductor", name: "Проводник", role: "conductor" as const, ticket: null, spawn: { carId: standard.id, x: 1, y: 3 }, mood: 100, steps: [] };
   const klimova = { id: "klimova", name: "Пассажирка Климова", role: "passenger" as const, ticket: { carId: standard.id, seat: "3A" }, spawn: { carId: standard.id, x: 3, y: 0 }, mood: 70, steps: [] };
@@ -44,7 +44,7 @@ export function serviceByClassEquipmentScenario(): ScenarioData {
             options: [
               { id: "quiet_check_options", text: "Проверить доступные места и временные варианты, ничего пока не обещая", next: null, effects: { loyalty: 2, safety: 0 }, timeCostSec: 4, correct: true, set: { "service.quiet_option_checked": true }, feedback: "Информация о ресурсе получена, но он не резервируется автоматически." },
               { id: "quiet_ask_car", text: "Попросить весь стандартный вагон двадцать минут соблюдать тишину", next: null, effects: { loyalty: -4, safety: 0 }, feedback: "Индивидуальная потребность переложена на весь вагон." },
-              { id: "quiet_corridor", text: "Предложить временно подобрать более спокойное место без обещания повышения класса", next: null, effects: { loyalty: 2, safety: 0 }, correct: true, feedback: "Решение соответствует масштабу запроса и не создаёт необеспеченное обещание." },
+              { id: "quiet_corridor", text: "Предложить провести звонок в сервисном тамбуре, не перекрывая проход, и затем вернуться на место", next: null, effects: { loyalty: 2, safety: 1 }, correct: true, feedback: "Звонок вынесен из пассажирского салона без необеспеченного обещания пересадки или повышения класса." },
             ],
           },
         ],
@@ -58,7 +58,7 @@ export function serviceByClassEquipmentScenario(): ScenarioData {
             options: [
               { id: "equipment_check", text: "Извиниться, проверить неисправность и оценить доступные альтернативы", next: "equipment_confirmed", effects: { loyalty: 2, safety: 1 }, correct: true, step: "acknowledge", timeCostSec: 5, set: { "service.equipment_failure_confirmed": true }, feedback: "Сначала подтверждены неисправность и доступные варианты решения." },
               { id: "equipment_ignore", text: "Предложить пользоваться зарядкой позже в другом вагоне", next: null, effects: { loyalty: -5, safety: 0 }, feedback: "Проблема оплаченного места не проверена и фактически переложена на пассажира." },
-              { id: "equipment_promise_repair", text: "Пообещать, что оборудование точно починят через несколько минут", next: null, effects: { loyalty: 3, safety: 0 }, set: { "service.unverified_repair_promise": true }, feedback: "Проводник не располагает подтверждением срока ремонта." },
+              { id: "equipment_promise_repair", text: "Пообещать, что оборудование точно починят через несколько минут", next: null, effects: { loyalty: 3, safety: -2 }, set: { "service.unverified_repair_promise": true }, feedback: "Срок ремонта определяет бортинженер после диагностики. Неподтверждённое обещание ухудшает оценку соблюдения алгоритмов в разборе." },
             ],
           },
           {
@@ -78,7 +78,7 @@ export function serviceByClassEquipmentScenario(): ScenarioData {
           {
             id: "upgrade_start", speaker: upgradePassenger.name, text: "В стандарте шумно. Я доплачу — пересадите меня в бизнес прямо сейчас.", timerSec: 16,
             options: [
-              { id: "upgrade_check", text: "Уточнить причину и проверить место и возможность оформления повышения класса", next: "upgrade_result", effects: { loyalty: 1, safety: 0 }, correct: true, timeCostSec: 5, set: { "service.upgrade_checked": true }, feedback: "Сначала проверена возможность оформления, а не только желание пассажира." },
+              { id: "upgrade_check", text: "Уточнить причину, запросить у ЛНП наличие мест и вызвать его для оформления доплаты через терминал", next: "upgrade_result", effects: { loyalty: 1, safety: 0 }, correct: true, timeCostSec: 5, set: { "service.upgrade_checked": true, "service.upgrade_np_called": true }, feedback: "Проводник не оформляет повышение самостоятельно: наличие места и доплату подтверждает ЛНП через терминал." },
               { id: "upgrade_move_first", text: "Сначала пересадить пассажира, а оплату оформить позже", next: null, effects: { loyalty: 4, safety: -2 }, set: { "service.unapproved_upgrade": true }, feedback: "Изменение класса фактически выполнено до проверки возможности оформления." },
               { id: "upgrade_no", text: "Отказать: менять класс после посадки нельзя", next: null, effects: { loyalty: -4, safety: 0 }, feedback: "Категоричный отказ дан без проверки доступных вариантов." },
             ],
@@ -86,7 +86,7 @@ export function serviceByClassEquipmentScenario(): ScenarioData {
           {
             id: "upgrade_result", speaker: "Обстановка", text: "Запрос на повышение класса возможен только при наличии свободного места. Свободный ресурс Business уже может быть нужен для другого пассажира.", timerSec: 12,
             options: [
-              { id: "upgrade_available", text: "Оформить повышение только если место действительно свободно и доступно для использования", next: null, if: { all: [{ resource: { type: "availableSeats", carId: business.id, range: { gte: 1 } }, }, { flag: "service.business_seat_reserved", eq: false }] }, effects: { loyalty: 3, safety: 0 }, correct: true, feedback: "Проверены и физический ресурс, и возможность изменения класса." },
+              { id: "upgrade_available", text: "Оформить повышение после подтверждения ЛНП: место свободно, доплата проведена через терминал", next: null, if: { all: [{ flag: "service.upgrade_np_called" }, { resource: { type: "availableSeats", carId: business.id, range: { gte: 1 } }, }, { flag: "service.business_seat_reserved", eq: false }] }, effects: { loyalty: 3, safety: 0 }, correct: true, set: { "service.business_seat_reserved": true }, feedback: "ЛНП подтвердил и физический ресурс, и оформление повышения; место больше не доступно для следующих запросов." },
               { id: "upgrade_alternative", text: "Если место недоступно, объяснить ограничение и предложить решение в текущем классе", next: null, effects: { loyalty: 1, safety: 0 }, correct: true, feedback: "Отказ объяснён через реальное ограничение, а не через формальное «нельзя»." },
               { id: "upgrade_promise", text: "Пообещать освободить место в Business позже", next: null, effects: { loyalty: 3, safety: 0 }, set: { "service.unverified_business_promise": true }, feedback: "Нет основания обещать будущую доступность ресурса." },
             ],
@@ -99,8 +99,8 @@ export function serviceByClassEquipmentScenario(): ScenarioData {
         nodes: [{
           id: "quiet_followup_start", speaker: klimova.name, text: "Звонок уже начинается. Вы говорили, что попробуете найти тихое место. Что делать?", timerSec: 12,
           options: [
-            { id: "quiet_use_business", text: "Предложить место в Business только если оно всё ещё свободно и использование согласовано", next: null, if: { all: [{ flag: "service.business_seat_reserved", eq: false }, { resource: { type: "availableSeats", carId: business.id, range: { gte: 1 } } }, { resource: { type: "capability", carId: business.id, capability: "quietArea" } }] }, effects: { loyalty: 3, safety: 0 }, correct: true, feedback: "Решение опирается на текущую доступность места, а не на старое обещание." },
-            { id: "quiet_alternative", text: "Объяснить, что место сейчас недоступно, и предложить наиболее тихую альтернативу без повышения класса", next: null, effects: { loyalty: 1, safety: 0 }, correct: true, feedback: "Решение адаптировано к изменившемуся состоянию ресурсов." },
+            { id: "quiet_use_business", text: "Пересадить в Business ради двадцатиминутного звонка, раз место свободно", next: null, if: { all: [{ flag: "service.business_seat_reserved", eq: false }, { resource: { type: "availableSeats", carId: business.id, range: { gte: 1 } } }] }, effects: { loyalty: -4, safety: 0 }, feedback: "Business — пассажирский салон, а не переговорная: звонок помешает отдыху и работе других пассажиров." },
+            { id: "quiet_alternative", text: "Проводить в сервисный тамбур на время звонка, сохранив проход свободным", next: null, effects: { loyalty: 2, safety: 1 }, correct: true, feedback: "Решение не затрагивает права пассажиров Business и учитывает безопасность прохода." },
             { id: "quiet_break_promise", text: "Попросить пассажира Business уступить место на двадцать минут", next: null, effects: { loyalty: -7, safety: 0 }, feedback: "Старое обещание защищается за счёт прав и комфорта другого пассажира." },
           ],
         }],

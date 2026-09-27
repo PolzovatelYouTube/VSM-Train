@@ -79,7 +79,7 @@ export function buildDebrief(data: ScenarioData, log: LogEntry[]): DebriefItem[]
       effects: l.effects,
       context: l.context,
       timeCostSec: l.timeCostSec,
-      competence: `${l.category === "medical" || l.category === "technical" ? "Безопасность" : "Коммуникация"}: ${l.correct ? "решение обосновано" : "требует внимания"}`,
+      competence: `${l.category === "medical" || l.category === "technical" || l.category === "security" ? "Безопасность" : "Коммуникация"}: ${l.correct ? "решение обосновано" : "требует внимания"}`,
       changes: Object.entries(l.flagsSet ?? {}).map(([flag, value]) =>
         `${ev?.context?.find((c) => c.flag === flag)?.label ?? flag}: ${value === true ? "да" : value === false ? "нет" : value}`),
       consequences: Array.from(new Set(log.filter((row) => row.causes?.includes(index))
@@ -143,6 +143,7 @@ const CATEGORY_IN: Record<EventCategory, string> = {
   conflict: "в конфликтах",
   medical: "в медицинских ситуациях",
   technical: "в технических ситуациях",
+  security: "в ситуациях транспортной безопасности",
   request: "при обращениях пассажиров",
 };
 
@@ -150,6 +151,7 @@ const CATEGORY_WHAT: Record<EventCategory, string> = {
   conflict: "конфликты",
   medical: "медицинские ситуации",
   technical: "технические ситуации",
+  security: "ситуации транспортной безопасности",
   request: "обращения пассажиров",
 };
 

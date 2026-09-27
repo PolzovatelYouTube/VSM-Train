@@ -44,12 +44,37 @@ describe("сценарий «Ситуации на борту»", () => {
     expect(s.active?.nodeId).toBe("d_ptb");
   });
 
+  it("№4: при отсутствии переносок не обещает продажу и вызывает начальника поезда", () => {
+    const s = createSim(data);
+    s.flags.carrier_out_of_stock = true;
+    openNode(s, data, "ev_pet", "p3");
+
+    expect(visibleOptions(findNode(data, "ev_pet", "p3")!, s).map((option) => option.id)).toEqual(["p3c", "p3b"]);
+    pick(s, "p3c");
+    expect(s.flags.np_called).toBe(true);
+    expect(s.flags.carrier_shortage_reported).toBe(true);
+  });
+
+  it("№6: силовые действия получают безопасную альтернативу в обратной связи", () => {
+    for (const id of ["d3b", "d6b"]) {
+      const option = data.events.find((event) => event.id === "ev_drunk")!.nodes
+        .flatMap((node) => node.options).find((item) => item.id === id)!;
+      expect(option.feedback).toContain("изолирует других пассажиров");
+      expect(option.feedback).toContain("транспортной полиции");
+    }
+  });
+
   it("№28: вариант «начальник поезда уже в курсе» виден только с флагом np_called", () => {
     const s = createSim(data);
     const m3 = findNode(data, "ev_medicine", "m3")!;
     expect(visibleOptions(m3, s).some((o) => o.id === "m3b")).toBe(false);
     s.flags.np_called = true;
     expect(visibleOptions(m3, s).some((o) => o.id === "m3b")).toBe(true);
+  });
+
+  it("№28: поиск медработника по громкой связи запрашивается у начальника поезда", () => {
+    const option = findNode(data, "ev_medicine", "m3")!.options.find((item) => item.id === "m3a")!;
+    expect(option.text).toContain("Запросить начальника поезда сделать объявление");
   });
 
   it("лояльность < 30 запускает жалобу начальнику поезда", () => {

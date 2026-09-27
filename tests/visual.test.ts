@@ -77,6 +77,16 @@ describe("пресеты спрайтов", () => {
     for (const a of demoScenario().actors) expect(SPRITE_PRESETS).toContain(resolvePreset(a));
   });
 
+  it("бармен использует отдельный пресет и закреплён за стойкой бистро", () => {
+    const data = demoScenario();
+    const bartender = data.actors.find((actor) => actor.role === "bartender")!;
+    const bistro = data.train.cars.find((car) => car.type === "bistro")!;
+    const scene = projectGameScene(data, createSim(data), { viewCarId: bistro.id, follow: false });
+
+    expect(resolvePreset(bartender)).toBe("bartender");
+    expect(scene.characters.find((character) => character.id === bartender.id)?.placement).toEqual({ x: 86.5, y: 24.5, zIndex: 26 });
+  });
+
   it("говорящий сопоставляется с актором по имени", () => {
     const data = demoScenario();
     expect(matchSpeaker(data, "Пассажир Громов")?.id).toBe("a_trouble");
@@ -111,7 +121,9 @@ describe("projectGameScene", () => {
     actor.path = [];
 
     expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 65.5, y: 20, zIndex: 73 });
-    expect(projectGameScene(data, s).characters.find((c) => c.id === actor.id)?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
+    expect(sceneActor?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(sceneActor?.facing).toBe("left");
   });
 
   it("dialogue: фокус на Громове, он говорит, остальные приглушены", () => {

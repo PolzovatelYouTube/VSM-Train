@@ -73,6 +73,18 @@ describe("meaningful choices", () => {
 });
 
 describe("одновременные ситуации", () => {
+  it("даёт больше времени на анализ при нагрузке, но не продлевает критический инцидент", () => {
+    const data = fixture();
+    data.events[0].nodes[0].timerSec = 20;
+    const s = createSim(data);
+    advance(s, data, 24);
+
+    expect(s.incidents.socket.riskEpisodes.at(-1)?.responseWindowSec).toBe(50);
+    expect(s.incidents["seat-dispute"].riskEpisodes.at(-1)?.responseWindowSec).toBe(30);
+    expect(s.incidents.breathing.riskEpisodes.at(-1)?.responseWindowSec).toBe(12);
+    expect(s.incidents.socket.dialogue?.limitSec).toBe(40);
+  });
+
   it("в тренировке время идёт, несколько обращений ждут выбора игрока", () => {
     const data = fixture();
     const s = createSim(data);

@@ -1,10 +1,8 @@
 import { buildCar, type Actor, type GameEvent, type ScenarioData } from "../scenario";
 
-// Маломобильные пассажиры и бдительность: пассажир в кресле-коляске, незрячая пассажирка
-// с собакой-проводником (СТО РЖД 03.014 «Требования к обслуживанию маломобильных пассажиров»:
-// п. 4.5, 6.3, 8.7–8.9) и ситуация №41 «Пассажир сообщает о бесхозной вещи» из методички.
-// Реплики №41 перенесены дословно. Если проводник трогает вещь, флаг item_touched
-// запускает событие «Вопросы ПТБ». Имена пассажиров вымышленные.
+// Маломобильные пассажиры и бдительность: синтетические учебные ситуации о помощи
+// пассажиру в кресле-коляске, собаке-проводнике и бесхозной вещи. Если вещь трогали,
+// разбор переносится до прибытия на ближайшую станцию. Имена пассажиров вымышленные.
 
 export const ACCESSIBILITY_SCENARIO_NAME = "Маломобильные пассажиры и бесхозная вещь";
 
@@ -27,11 +25,12 @@ export function accessibilityScenario(): ScenarioData {
     trigger: { type: "actor" },
     stage: "boarding",
     startNode: "w1",
+    context: [{ flag: "boarding_priority_given", label: "Приоритетная посадка и порядок высадки согласованы" }],
     nodes: [
       {
         id: "w1",
         speaker: "Пассажир Громов",
-        text: "Добрый день. Мне на место 2A. С креслом я справлюсь, а вот чемодан на полку сам не подниму.",
+        text: "Добрый день. Я заранее сообщил через контакт-центр, что мне понадобится помощь. Мне на место 2A: с креслом справлюсь, а чемодан на полку сам не подниму.",
         timerSec: 20,
         onTimeout: {
           next: "w_bad",
@@ -41,11 +40,12 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "w1a",
-            text: "«Добрый день! Я помогу Вам разместиться с вещами. Подскажите, как Вам удобнее: пересесть на место или остаться в кресле?»",
+            text: "«Добрый день! Я помогу Вам разместиться с вещами. Подскажите, как Вам удобнее: пересесть на место или остаться в кресле? При высадке помогу после выхода основного потока.»",
             next: "w2",
             effects: { loyalty: 10, safety: 5 },
             correct: true,
             step: "acknowledge",
+            set: { boarding_priority_given: true },
             hint: "Обращаться к самому пассажиру и уточнить, какая помощь ему нужна.",
             feedback: "Помощь при размещении с вещами — обязанность персонала (СТО РЖД 03.014, п. 8.7). Сначала узнать у самого пассажира, как ему удобно (п. 8.9).",
           },
@@ -160,6 +160,7 @@ export function accessibilityScenario(): ScenarioData {
     trigger: { type: "actor" },
     stage: "onboard",
     startNode: "g1",
+    context: [{ flag: "dog_passage_clear", label: "Собака-проводник размещена без перекрытия прохода" }],
     nodes: [
       {
         id: "g1",
@@ -201,7 +202,7 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "g2a",
-            text: "«Это собака-проводник: она помогает пассажирке ориентироваться. Для собак-проводников действуют особые правила перевозки, переноска не требуется»",
+            text: "«Это собака-проводник: у неё есть опознавательный жилет и документ об обучении. Она помогает пассажирке ориентироваться, переноска не требуется»",
             next: "g3",
             effects: { loyalty: 5, safety: 5 },
             correct: true,
@@ -221,18 +222,18 @@ export function accessibilityScenario(): ScenarioData {
       {
         id: "g3",
         speaker: "Пассажирка Лебедева",
-        text: "Простите, если мы мешаем. Джесси обычно тихо лежит у ног.",
+        text: "Простите, если мы мешаем. Джесси обычно тихо лежит у ног, не в проходе.",
         timerSec: 20,
         options: [
           {
             id: "g3a",
-            text: "«Всё в порядке, Вы никому не мешаете». Соседу — предложить свободное место у окна, если ему некомфортно",
+            text: "«Всё в порядке. Проверю, что Джесси лежит у Вашего места и не перекрывает проход». Соседу — предложить свободное место у окна, если ему некомфортно",
             next: "g4",
             effects: { loyalty: 10, safety: 5 },
             correct: true,
             step: "solution",
-            set: { neighbour_moved: true },
-            feedback: "Решение для обеих сторон: пассажирка остаётся на своём месте, соседу предложен выбор.",
+            set: { neighbour_moved: true, dog_passage_clear: true },
+            feedback: "Решение для обеих сторон: пассажирка остаётся на своём месте, собака не перекрывает путь эвакуации, соседу предложен выбор.",
           },
           {
             id: "g3b",
@@ -329,13 +330,13 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "h2a",
-            text: "Показать информацию на экране и записать время следующей остановки",
+            text: "Показать время на информационном дисплее или в текстовом сообщении приложения",
             next: null,
             if: { all: [{ flag: "hearing_channel_agreed" }, { resource: { type: "capability", carId: car2.id, capability: "writtenCommunication" } }, { resource: { type: "capability", carId: car2.id, capability: "visualInformation" } }, { resource: { type: "serviceEntitlement", entitlement: "writtenCommunication" } }] },
             effects: { loyalty: 5, safety: 0 },
             correct: true,
             step: "solution",
-            feedback: "В этом составе доступны письменный и визуальный каналы; информация передана в согласованном формате.",
+            feedback: "В этом составе доступны визуальный дисплей и текстовый канал; информация передана в согласованном электронном формате.",
           },
           {
             id: "h2b",
@@ -394,13 +395,13 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "v2a",
-            text: "Устно описать маршрут по рядам и предложить проводить до ориентира",
+            text: "Предложить сопровождение под руку до санузла, дополнительно описав маршрут по рядам",
             next: null,
             if: { all: [{ flag: "orientation_preference" }, { resource: { type: "serviceEntitlement", entitlement: "verbalOrientation" } }] },
             effects: { loyalty: 5, safety: 2 },
             correct: true,
             step: "solution",
-            feedback: "Переданы словесные ориентиры и предложена дальнейшая помощь; это отдельный канал, не равный письменному сообщению.",
+            feedback: "На ходу поезда сопровождение безопаснее одного словесного описания; ориентиры дополняют помощь, а не заменяют её.",
           },
           {
             id: "v2b",
@@ -414,11 +415,11 @@ export function accessibilityScenario(): ScenarioData {
     ],
   };
 
-  // №41 — пассажир сообщает о бесхозной вещи: не трогать, сообщить начальнику поезда и ПТБ по радиосвязи
+  // Бесхозная вещь: не трогать, ограничить приближение и передать доклад начальнику поезда.
   const evItem: GameEvent = {
     id: "ev_item",
     title: "Бесхозная вещь",
-    category: "technical",
+    category: "security",
     actorId: "a_reporter",
     trigger: { type: "time", atSec: 75 },
     stage: "onboard",
@@ -433,7 +434,7 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "i1a",
-            text: "«Благодарю за бдительность, сейчас я уточню, кому принадлежит оставленная вещь»",
+            text: "«Благодарю за бдительность. Через начальника поезда передам просьбу спокойно уточнить принадлежность вещи по громкой связи»",
             next: "i2",
             effects: { loyalty: 5, safety: 5 },
             correct: true,
@@ -446,7 +447,7 @@ export function accessibilityScenario(): ScenarioData {
             effects: { loyalty: 0, safety: -25 },
             set: { item_touched: true },
             hint: "Не трогать вещь.",
-            feedback: "По алгоритму бесхозную вещь не трогают, не открывают и не переносят — только сообщают начальнику поезда и ПТБ.",
+            feedback: "Бесхозную вещь не трогают, не открывают и не переносят: действия координирует начальник поезда.",
           },
           {
             id: "i1c",
@@ -489,13 +490,13 @@ export function accessibilityScenario(): ScenarioData {
         options: [
           {
             id: "i3a",
-            text: "«Начальник поезда, в 4-м вагоне у места 7C оставленная вещь. Пассажиров попросил не подходить. Прошу подойти с сотрудником ПТБ»",
+            text: "«Начальник поезда, в 4-м вагоне у места 7C оставленная вещь. Пассажиров попросил не подходить. Прошу передать диспетчеру и организовать встречу ЛОВД на ближайшей станции»",
             next: "i4",
             effects: { loyalty: 0, safety: 15 },
             correct: true,
             step: "solution",
             set: { np_called: true },
-            feedback: "Оперативно проинформированы начальник поезда и ПТБ по поездной радиосвязи — как требует алгоритм.",
+            feedback: "Начальнику поезда переданы место, принятые меры и запрос на координацию с диспетчером и ЛОВД; пассажиры не привлекаются к разбору.",
           },
           {
             id: "i3b",
@@ -511,7 +512,7 @@ export function accessibilityScenario(): ScenarioData {
         id: "i4",
         kind: "information",
         speaker: "Пассажирка Зайцева",
-        text: "Начальник поезда идёт. Пассажирам передано: сохранять спокойствие и следовать рекомендациям персонала поезда.",
+        text: "Начальник поезда принял доклад и передал информацию диспетчеру. Пассажирам сообщено сохранять спокойствие и следовать рекомендациям персонала.",
         next: null,
         options: [],
       },
@@ -542,19 +543,38 @@ export function accessibilityScenario(): ScenarioData {
     ],
   };
 
-  // Последствие: вещь трогали — сотрудник ПТБ задаёт вопросы
+  const evStationArrival: GameEvent = {
+    id: "ev_station_arrival",
+    title: "Прибытие на ближайшую станцию",
+    category: "security",
+    actorId: null,
+    trigger: { type: "time", atSec: 120 },
+    stage: "alighting",
+    startNode: "station_arrival",
+    nodes: [{
+      id: "station_arrival",
+      kind: "information",
+      speaker: "Обстановка",
+      text: "Поезд прибыл на ближайшую станцию. Сведения о бесхозной вещи переданы встречающим службам.",
+      next: null,
+      set: { station_arrived: true },
+      options: [],
+    }],
+  };
+
+  // Последствие: вещь трогали — разбор проводится только после прибытия на станцию.
   const evPtb: GameEvent = {
     id: "ev_ptb",
-    title: "Вопросы сотрудника ПТБ",
-    category: "technical",
+    title: "Разбор бесхозной вещи на станции",
+    category: "security",
     actorId: null,
-    trigger: { type: "condition", if: { flag: "item_touched" } },
+    trigger: { type: "condition", if: { all: [{ flag: "item_touched" }, { flag: "station_arrived" }] } },
     stage: "complaint",
     startNode: "t1",
     nodes: [
       {
         id: "t1",
-        speaker: "Сотрудник ПТБ",
+        speaker: "Сотрудник ЛОВД / службы безопасности на станции",
         text: "Вещь перемещали или открывали? Кто к ней прикасался?",
         timerSec: 15,
         options: [
@@ -564,14 +584,14 @@ export function accessibilityScenario(): ScenarioData {
             next: null,
             effects: { loyalty: 0, safety: 10 },
             correct: true,
-            feedback: "Точный доклад помогает ПТБ оценить угрозу. В следующий раз — не трогать вещь до их прихода.",
+            feedback: "Точный доклад помогает встречающим службам оценить ситуацию. В следующий раз вещь не следует трогать до прибытия на станцию.",
           },
           {
             id: "t1b",
             text: "«Никто не трогал, она так и лежала»",
             next: null,
             effects: { loyalty: 0, safety: -20 },
-            feedback: "Скрыть перемещение вещи — опаснее всего: ПТБ работает с неверной информацией.",
+            feedback: "Скрыть перемещение вещи опаснее всего: встречающие службы получают неверную информацию.",
           },
         ],
       },
@@ -586,6 +606,15 @@ export function accessibilityScenario(): ScenarioData {
       ticket: null,
       spawn: { carId: car2.id, x: 1, y: 2 },
       mood: 100,
+      steps: [],
+    },
+    {
+      id: "a_bartender",
+      name: "Бармен вагона-бистро",
+      role: "bartender",
+      ticket: null,
+      spawn: { carId: car3.id, x: 3, y: 0 },
+      mood: 80,
       steps: [],
     },
     {
@@ -666,7 +695,7 @@ export function accessibilityScenario(): ScenarioData {
     gameplay: "sequential",
     train: { name: "ВСМ «Сапсан-2» №705", cars: [car1, car2, car3, car4] },
     actors,
-    events: [evWheelchair, evGuideDog, evHearing, evVision, evItem, evPtb],
+    events: [evWheelchair, evGuideDog, evHearing, evVision, evItem, evStationArrival, evPtb],
     durationSec: 150,
     initial: { loyalty: 70, safety: 80 },
     serviceEntitlements: {

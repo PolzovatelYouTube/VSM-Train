@@ -122,6 +122,7 @@ export const ACTOR_ROLES = [
   "child",
   "troublemaker",
   "conductor",
+  "bartender",
 ] as const;
 export type ActorRole = (typeof ACTOR_ROLES)[number];
 
@@ -132,6 +133,7 @@ export const ACTOR_ROLE_LABEL: Record<ActorRole, string> = {
   child: "Ребёнок",
   troublemaker: "Конфликтный пассажир",
   conductor: "Проводник",
+  bartender: "Бармен",
 };
 
 export const targetSchema = z.discriminatedUnion("kind", [
@@ -202,13 +204,14 @@ export type Actor = z.infer<typeof actorSchema>;
 
 // ───────────────────────────── События (диалоговый граф) ─────────────────────────────
 
-export const EVENT_CATEGORIES = ["conflict", "medical", "technical", "request"] as const;
+export const EVENT_CATEGORIES = ["conflict", "medical", "technical", "security", "request"] as const;
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 export const EVENT_CATEGORY_LABEL: Record<EventCategory, string> = {
   conflict: "Конфликт",
   medical: "Медицинский",
   technical: "Технический",
+  security: "Транспортная безопасность",
   request: "Обращение",
 };
 
@@ -644,6 +647,16 @@ export function demoScenario(): ScenarioData {
       ticket: null,
       spawn: { carId: car2.id, x: 1, y: 2 },
       mood: 100,
+      steps: [],
+    },
+    {
+      id: "a_bartender",
+      name: "Бармен вагона-бистро",
+      role: "bartender",
+      ticket: null,
+      // Служебная позиция за стойкой; визуальный проектор привязывает её к barCounter.
+      spawn: { carId: car3.id, x: 3, y: 0 },
+      mood: 80,
       steps: [],
     },
     {

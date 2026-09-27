@@ -89,10 +89,22 @@ export function onboardScenario(): ScenarioData {
             id: "p3a",
             text: "«Вы можете приобрести переноску на борту нашего поезда. Я принесу её прямо к Вашему месту»",
             next: "p4",
+            if: { flag: "carrier_out_of_stock", eq: false },
             effects: { loyalty: 10, safety: 10 },
             correct: true,
             step: "solution",
             set: { carrier_offered: true },
+          },
+          {
+            id: "p3c",
+            text: "«Переноски на борту закончились. Я вызову начальника поезда, чтобы согласовать дальнейшие действия на ближайшей станции»",
+            next: null,
+            if: { flag: "carrier_out_of_stock" },
+            effects: { loyalty: -2, safety: 8 },
+            correct: true,
+            step: "solution",
+            set: { np_called: true, carrier_shortage_reported: true },
+            feedback: "Проводник не обещает отсутствующий ресурс: начальник поезда координирует дальнейшее решение на ближайшей станции.",
           },
           {
             id: "p3b",
@@ -237,6 +249,7 @@ export function onboardScenario(): ScenarioData {
             text: "Попытаться вывести пассажира из вагона силой",
             next: "d_ptb",
             effects: { loyalty: -10, safety: -20 },
+            feedback: "Проводник изолирует других пассажиров и ведёт наблюдение на безопасной дистанции; силовое задержание осуществляют только сотрудники ПТБ или транспортной полиции.",
           },
         ],
       },
@@ -301,6 +314,7 @@ export function onboardScenario(): ScenarioData {
             text: "Самому удерживать пассажира до прихода ПТБ",
             next: null,
             effects: { loyalty: -5, safety: -20 },
+            feedback: "Проводник изолирует других пассажиров и ведёт наблюдение на безопасной дистанции; силовое задержание осуществляют только сотрудники ПТБ или транспортной полиции.",
           },
         ],
       },
@@ -391,7 +405,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "m3a",
-            text: "Уведомить начальника поезда, объявить по громкой связи поиск медработника среди пассажиров, запросить медиков на ближайшую станцию",
+            text: "Запросить начальника поезда сделать объявление по громкой связи о поиске медицинского работника и запросить медиков на ближайшую станцию",
             next: "m4",
             effects: { loyalty: 3, safety: 10 },
             correct: true,
@@ -401,7 +415,7 @@ export function onboardScenario(): ScenarioData {
           },
           {
             id: "m3b",
-            text: "Начальник поезда уже в курсе — объявить поиск медработника и передать, что состояние ухудшается",
+            text: "Передать начальнику поезда, что состояние ухудшается, и попросить его сделать объявление о поиске медицинского работника",
             next: "m4",
             effects: { loyalty: 2, safety: 12 },
             correct: true,
@@ -441,7 +455,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "m5a",
-            text: "Остаться рядом, уведомить начальника поезда, объявить поиск медработника и вызвать медиков на ближайшую станцию",
+            text: "Остаться рядом, уведомить начальника поезда, попросить его объявить поиск медицинского работника и вызвать медиков на ближайшую станцию",
             next: "m4",
             effects: { loyalty: 5, safety: 15 },
             correct: true,
@@ -458,7 +472,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "mba",
-            text: "Остаться с пассажиркой, объявить поиск медработника среди пассажиров, вызвать медиков на ближайшую станцию",
+            text: "Остаться с пассажиркой, попросить начальника поезда объявить поиск медицинского работника и вызвать медиков на ближайшую станцию",
             next: null,
             effects: { loyalty: 5, safety: 10 },
             correct: true,
@@ -533,6 +547,15 @@ export function onboardScenario(): ScenarioData {
       ticket: null,
       spawn: { carId: car2.id, x: 1, y: 2 },
       mood: 100,
+      steps: [],
+    },
+    {
+      id: "a_bartender",
+      name: "Бармен вагона-бистро",
+      role: "bartender",
+      ticket: null,
+      spawn: { carId: car3.id, x: 3, y: 0 },
+      mood: 80,
       steps: [],
     },
     {
