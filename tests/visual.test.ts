@@ -120,9 +120,9 @@ describe("projectGameScene", () => {
     actor.seated = true;
     actor.path = [];
 
-    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 63.9, y: 30.2, zIndex: 73 });
     const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
-    expect(sceneActor?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(sceneActor?.placement).toEqual({ x: 63.9, y: 30.2, zIndex: 73 });
     expect(sceneActor?.facing).toBe("left");
   });
 

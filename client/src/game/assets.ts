@@ -197,6 +197,7 @@ export const SPRITE_STYLES: Record<SpritePreset, SpriteStyle> = {
   "elderly-m": { skin: "#e7bf9f", hair: "#e5e7eb", hairStyle: "bald", top: "#7c8b6e", bottom: "#44403c", shoes: "#3f3a36", extra: "glasses" },
   child: { skin: "#f6d3b5", hair: "#b7791f", hairStyle: "kid", top: "#f59e0b", bottom: "#2563eb", shoes: "#dc2626", scale: 0.66 },
   vip: { skin: "#eac29f", hair: "#1f1a17", hairStyle: "short", top: "#262a33", bottom: "#1f2229", shoes: "#0b0b0c", extra: "tie" },
+  bartender: { skin: "#e8b98f", hair: "#2d2118", hairStyle: "short", top: "#1f3a68", bottom: "#1a2b4a", shoes: "#111827", extra: "tie" },
   troublemaker: { skin: "#e3b48c", hair: "#2a1f1a", hairStyle: "short", top: "#c2412d", bottom: "#2f3a4a", shoes: "#1f2937", extra: "hood" },
 };
 
