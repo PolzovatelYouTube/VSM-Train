@@ -154,7 +154,7 @@ function LeaderboardPreview({ board, player }: { board: { name: string; activePo
 export default function Home() {
   const { data: scenarios, isLoading } = useScenarios();
   const { data: board } = useLeaderboard();
-  const { player } = useApp();
+  const { player, user } = useApp();
 
   return (
     <Shell>
@@ -231,6 +231,11 @@ export default function Home() {
                       </Link>
                     </Button>
                   </div>
+                  {user?.role === "supervisor" && (
+                    <Button asChild variant="outline">
+                      <Link href={`/editor/${s.id}`}>Редактировать</Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
