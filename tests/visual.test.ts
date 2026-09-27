@@ -83,6 +83,21 @@ describe("пресеты спрайтов", () => {
     expect(resolvePreset({ id: "a", role: "passenger", visual: { preset: "child" } })).toBe("child");
   });
 
+  it("подбирает пол спрайта по обозначению и фамилии персонажа", () => {
+    expect(resolvePreset({ id: "zaitseva", name: "Зайцева", role: "passenger" })).toBe("passenger-f");
+    expect(resolvePreset({ id: "kim", name: "Пассажирка Ким", role: "passenger" })).toBe("passenger-f");
+    expect(resolvePreset({ id: "kuznetsov", name: "Кузнецов", role: "passenger" })).toBe("passenger-m");
+    expect(resolvePreset({ id: "andreeva", name: "Андреева", role: "elderly" })).toBe("elderly-f");
+    expect(resolvePreset({ id: "fomin", name: "Фомин", role: "elderly" })).toBe("elderly-m");
+  });
+
+  it("не подставляет PNG противоположного пола", () => {
+    expect(characterImageFrame("passenger-f", "idle", false, false)).toBeUndefined();
+    expect(characterImageFrame("passenger-m", "idle", false, false)?.src).toContain("passenger_male_stand.png");
+    expect(characterImageFrame("elderly-f", "idle", false, false)?.src).toContain("elderly_woman_stand.png");
+    expect(characterImageFrame("elderly-m", "idle", false, false)).toBeUndefined();
+  });
+
   it("пресет пассажира стабилен для одного id", () => {
     expect(defaultPreset("passenger", "a_owner")).toBe(defaultPreset("passenger", "a_owner"));
     for (const a of demoScenario().actors) expect(SPRITE_PRESETS).toContain(resolvePreset(a));

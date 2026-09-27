@@ -73,7 +73,20 @@ const LEGACY_PRESET_MAP: Record<string, SpritePreset> = {
 /** Стабильный хеш строки — чтобы пассажир без пресета всегда выглядел одинаково */
 const hash = (s: string) => s.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
+function genderFromName(name?: string): "female" | "male" | undefined {
+  if (!name) return undefined;
+  const normalized = name.toLowerCase().replace(/ё/g, "е");
+  if (/(?:^|[\s(])(пассажирка|спутница|женщина|девочка|мать|мама|бабушка)(?=$|[\s),])/.test(normalized)) return "female";
+  if (/(?:^|[\s(])(пассажир|спутник|мужчина|мальчик|отец|папа|дедушка)(?=$|[\s),])/.test(normalized)) return "male";
+
+  const words = normalized.match(/[а-я-]+/g) ?? [];
+  if (words.some((word) => /(?:ова|ева|ина|ына|ская|цкая|ая)$/.test(word))) return "female";
+  if (words.some((word) => /(?:ов|ев|ин|ын|ский|цкий|ой|ий)$/.test(word))) return "male";
+  return undefined;
+}
+
+export function defaultPreset(role: ActorRole, actorId: string, actorName?: string): SpritePreset {
+  const gender = genderFromName(actorName);
   switch (role) {
     case "conductor":
       return "conductor";
@@ -86,8 +99,10 @@ export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
     case "bartender":
       return "bartender";
     case "elderly":
+      if (gender) return gender === "female" ? "elderly-f" : "elderly-m";
       return hash(actorId) % 2 ? "elderly-m" : "elderly-f";
     default:
+      if (gender) return gender === "female" ? "passenger-f" : "passenger-m";
       return hash(actorId) % 2 ? "passenger-m" : "passenger-f";
   }
 }
@@ -104,9 +119,9 @@ function normalizePreset(value: unknown): SpritePreset | null {
 }
 
 /** Пресет актора: авторский, если он известен, иначе — по роли */
-export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual">): SpritePreset {
+export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual"> & Partial<Pick<Actor, "name">>): SpritePreset {
   const preset = normalizePreset(actor.visual?.preset);
-  return preset ?? defaultPreset(actor.role, actor.id);
+  return preset ?? defaultPreset(actor.role, actor.id, actor.name);
 }
 
 export const resolveLandscape = (data: ScenarioData): Landscape => {

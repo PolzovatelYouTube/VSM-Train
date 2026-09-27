@@ -84,26 +84,38 @@ const CHARACTER_IMAGE_FRAMES = {
   },
 } as const;
 
-/** PNG-поза, если для персонажа она есть; undefined означает SVG-fallback. */
+type CharacterPoseFrames = {
+  stand: CharacterImageFrame;
+  sit?: CharacterImageFrame;
+};
+
+/** Полный маппинг старых пресетов на текущие PNG-ассеты. */
+const CHARACTER_PRESET_IMAGE_FRAMES: Record<SpritePreset, CharacterPoseFrames> = {
+  conductor: CHARACTER_IMAGE_FRAMES.conductor,
+  "passenger-f": CHARACTER_IMAGE_FRAMES.passenger,
+  "passenger-m": CHARACTER_IMAGE_FRAMES.passenger,
+  "elderly-f": CHARACTER_IMAGE_FRAMES.elderly,
+  "elderly-m": CHARACTER_IMAGE_FRAMES.elderly,
+  child: CHARACTER_IMAGE_FRAMES.child,
+  vip: CHARACTER_IMAGE_FRAMES.vip,
+  troublemaker: CHARACTER_IMAGE_FRAMES.passenger,
+  bartender: CHARACTER_IMAGE_FRAMES.bartender,
+};
+
+function imageFrameForPose(frames: CharacterPoseFrames, pose: "stand" | "sit"): CharacterImageFrame {
+  return pose === "sit" ? frames.sit ?? frames.stand : frames.stand;
+}
+
+/** PNG-поза из текущего набора ассетов для любого старого пресета. */
 export function characterImageFrame(
   preset: SpritePreset,
   state: CharacterState,
   seated: boolean,
   usesWheelchair: boolean,
-): CharacterImageFrame | undefined {
+): CharacterImageFrame {
   const pose = seated || state === "sit" ? "sit" : "stand";
-  if (preset === "conductor") return CHARACTER_IMAGE_FRAMES.conductor.stand;
-  if (usesWheelchair) return CHARACTER_IMAGE_FRAMES.wheelchair[pose];
-  if (preset === "child") return CHARACTER_IMAGE_FRAMES.child[pose];
-  if (preset === "elderly-f" || preset === "elderly-m") return CHARACTER_IMAGE_FRAMES.elderly[pose];
-  if (preset === "vip") return CHARACTER_IMAGE_FRAMES.vip[pose];
-  if (preset === "bartender") return CHARACTER_IMAGE_FRAMES.bartender[pose];
-  if (preset === "passenger-f" || preset === "passenger-m") {
-    return pose === "sit"
-      ? CHARACTER_IMAGE_FRAMES.passenger.sit
-      : CHARACTER_IMAGE_FRAMES.passenger.stand ?? CHARACTER_IMAGE_FRAMES.passenger.sit;
-  }
-  return undefined;
+  if (usesWheelchair) return imageFrameForPose(CHARACTER_IMAGE_FRAMES.wheelchair, pose);
+  return imageFrameForPose(CHARACTER_PRESET_IMAGE_FRAMES[preset], pose);
 }
 
 export interface LandscapeAsset {
