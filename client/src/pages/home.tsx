@@ -33,7 +33,7 @@ function AccentBlocks() {
         <div className="flex items-start gap-3">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white">
             <img 
-              src=".\public\leaderboard.png" 
+              src="/leaderboard.png"
               alt="Alert Icon" 
               className="size-7 object-contain" 
             />
