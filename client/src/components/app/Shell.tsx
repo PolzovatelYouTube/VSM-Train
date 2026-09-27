@@ -1,10 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Moon, Sun, LayoutGrid, Trophy, UserRound, UsersRound } from "lucide-react";
+import { Moon, Sun, LayoutGrid, Trophy, UserRound, UsersRound, LogOut } from "lucide-react";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
 import { useApp } from "@/lib/player";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -17,19 +16,19 @@ const nav = [
 
 export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   const [loc] = useLocation();
-  const { player, setPlayer, theme, toggleTheme } = useApp();
+  const { player, user, logout, theme, toggleTheme } = useApp();
   return (
     <div className="min-h-full flex flex-col bg-background text-foreground">
       <header className="border-b border-border bg-card/70 backdrop-blur sticky top-0 z-30">
         <div className={cn("mx-auto flex items-center gap-4 px-4 h-14", wide ? "max-w-none" : "max-w-6xl")}>
           <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight" data-testid="link-home">
-            <Logo />
+            <Logo size={40} />
             <span>
               ВСМ <span className="text-muted-foreground font-medium">Тренажёр</span>
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1 ml-4">
-            {nav.map((n) => {
+            {nav.filter((n) => n.href !== "/team" || user?.role === "supervisor").map((n) => {
               const active = n.href === "/" ? loc === "/" : loc.startsWith(n.href);
               return (
                 <Link
@@ -48,17 +47,13 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
             })}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <label className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
               <UserRound className="size-4" />
-              <Input
-                value={player}
-                onChange={(e) => setPlayer(e.target.value)}
-                className="h-8 w-40"
-                aria-label="Имя сотрудника"
-                data-testid="input-player"
-              />
-            </label>
+              <span>{player}</span>
+              {user?.role === "supervisor" && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">руководитель</span>}
+            </div>
             <NotificationBell />
+            <Button variant="ghost" size="icon" onClick={logout} aria-label="Выйти" data-testid="button-logout"><LogOut className="size-4" /></Button>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Переключить тему" data-testid="button-theme">
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>

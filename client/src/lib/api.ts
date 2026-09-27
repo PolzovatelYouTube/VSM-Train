@@ -2,7 +2,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "./queryClient";
 import type { ScenarioData } from "@shared/scenario";
-import type { InsertAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics, Notification } from "@shared/schema";
+import type { SubmitAttempt, LeaderboardEntry, LeaderboardScope, PlayerProfile, Attempt, Depot, Team, TeamAnalytics, Notification } from "@shared/schema";
 import { NOTIFICATIONS_POLL_MS } from "@shared/rules";
 
 export interface ScenarioDto {
@@ -58,7 +58,7 @@ export const useDeleteScenario = () =>
 
 export const useSubmitAttempt = () =>
   useMutation({
-    mutationFn: async (body: InsertAttempt) => (await apiRequest("POST", "/api/attempts", body)).json(),
+    mutationFn: async (body: SubmitAttempt) => (await apiRequest("POST", "/api/attempts", body)).json(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
@@ -67,11 +67,15 @@ export const useSubmitAttempt = () =>
     },
   });
 
+/** Получение уведомлений остаётся в API-слое, а не в компоненте колокольчика. */
+export const getNotifications = async (player: string): Promise<Notification[]> =>
+  (await apiRequest("GET", `/api/notifications?player=${encodeURIComponent(player)}`)).json();
+
 /** Уведомления: опрос сервера раз в NOTIFICATIONS_POLL_MS (TanStack Query refetchInterval) */
 export const useNotifications = (player: string) =>
   useQuery<Notification[]>({
     queryKey: ["/api/notifications", player],
-    queryFn: async () => (await apiRequest("GET", `/api/notifications?player=${encodeURIComponent(player)}`)).json(),
+    queryFn: () => getNotifications(player),
     enabled: !!player,
     refetchInterval: NOTIFICATIONS_POLL_MS,
     staleTime: 0,

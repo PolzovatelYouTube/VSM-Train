@@ -28,6 +28,11 @@ export interface DebriefItem {
   why: string; // почему так изменились шкалы
   better: { text: string; hint?: string } | null; // как можно было лучше (эталонный вариант узла)
   violation: string | null; // нарушение ролевой модели
+  context?: LogEntry["context"];
+  consequences?: string[];
+  changes?: string[];
+  competence?: string;
+  timeCostSec?: number;
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
@@ -46,19 +51,21 @@ export function referenceOption(options: DialogueOption[]): DialogueOption | und
 
 /** Разбор каждого решения: ситуация, выбор, изменение шкал и почему, как можно было лучше */
 export function buildDebrief(data: ScenarioData, log: LogEntry[]): DebriefItem[] {
-  return log.map((l) => {
+  return log.flatMap((l, index) => {
+    if (l.cause) return [];
     const ev = findEvent(data, l.eventId);
     const node = findNode(data, l.eventId, l.nodeId);
     const option = node?.options.find((o) => o.id === l.optionId);
-    const ref = node ? referenceOption(node.options) : undefined;
+    // Не предлагать статический эталон там, где оценка зависит от контекста.
+    const ref = node && !node.options.some((o) => o.outcomes) ? referenceOption(node.options) : undefined;
     const isTimeout = l.optionId === null;
 
     let why: string;
     if (isTimeout) {
-      const consequence = node?.onTimeout?.text ?? `штраф за просрочку (${describeEffects(TIMEOUT_PENALTY)})`;
-      why = `Решение не принято за ${l.limitSec ?? node?.timerSec ?? "?"} с: ${consequence}.`;
+      const consequence = l.feedback ?? node?.onTimeout?.text ?? `штраф за просрочку (${describeEffects(TIMEOUT_PENALTY)})`;
+      why = l.cause ? consequence : `Решение не принято за ${l.limitSec ?? node?.timerSec ?? "?"} с: ${consequence}.`;
     } else {
-      why = option?.feedback ?? (l.correct ? "Действие по стандарту обслуживания." : "Действие расходится со стандартом обслуживания.");
+      why = l.feedback ?? option?.feedback ?? (l.correct ? "Действие по стандарту обслуживания." : "Действие расходится со стандартом обслуживания.");
     }
 
     return {
@@ -70,8 +77,15 @@ export function buildDebrief(data: ScenarioData, log: LogEntry[]): DebriefItem[]
       step: l.step,
       correct: l.correct,
       effects: l.effects,
+      context: l.context,
+      timeCostSec: l.timeCostSec,
+      competence: `${l.category === "medical" || l.category === "technical" ? "Безопасность" : "Коммуникация"}: ${l.correct ? "решение обосновано" : "требует внимания"}`,
+      changes: Object.entries(l.flagsSet ?? {}).map(([flag, value]) =>
+        `${ev?.context?.find((c) => c.flag === flag)?.label ?? flag}: ${value === true ? "да" : value === false ? "нет" : value}`),
+      consequences: Array.from(new Set(log.filter((row) => row.causes?.includes(index))
+        .map((row) => findEvent(data, row.eventId)?.title ?? row.eventId))),
       why,
-      better: !l.correct && ref && ref.id !== l.optionId ? { text: ref.text, hint: ref.hint } : null,
+      better: !l.cause && !l.correct && ref && ref.id !== l.optionId ? { text: ref.text, hint: ref.hint } : null,
       violation: l.violation ? `Ролевая модель: ${ROLE_VIOLATION_TEXT[l.violation]}` : null,
     };
   });
@@ -88,6 +102,8 @@ export const SKILL_LABEL: Record<SkillKey, string> = {
   speed: "Скорость реакции",
   protocol: "Соблюдение алгоритмов",
   roleModel: "Ролевая модель общения",
+  prioritization: "Приоритизация",
+  situational_awareness: "Ситуационная осведомлённость",
 };
 
 /** Попытка для аналитики: компетенции и лог уже распарсены, сортировка — от новых к старым */
@@ -146,6 +162,7 @@ interface CategoryStat {
 }
 
 export function categoryStats(log: LogEntry[]): CategoryStat[] {
+  log = log.filter((entry) => !entry.cause);
   const cats = Array.from(new Set(log.map((l) => l.category)));
   return cats.map((category) => {
     const rows = log.filter((l) => l.category === category);
@@ -166,7 +183,7 @@ export function categoryStats(log: LogEntry[]): CategoryStat[] {
 export function buildInsights(rows: AnalyticsRow[], window = SKILL_WINDOW): string[] {
   const recent = rows.slice(0, window);
   if (!recent.length) return ["Пока нет данных: пройдите рейс, и здесь появятся выводы о ваших сильных и слабых сторонах."];
-  const log = recent.flatMap((r) => r.log);
+  const log = recent.flatMap((r) => r.log).filter((entry) => !entry.cause);
   const stats = categoryStats(log).filter((c) => c.decisions >= INSIGHT_MIN_DECISIONS);
   const out: string[] = [];
 
@@ -232,7 +249,7 @@ export function topMistakes(entries: { scenarioId: number; data: ScenarioData; l
   const byKey = new Map<string, TeamMistake>();
   for (const { scenarioId, data, log } of entries) {
     for (const l of log) {
-      if (l.correct) continue;
+      if (l.correct || l.cause) continue;
       const key = `${scenarioId}/${l.eventId}/${l.nodeId}/${l.optionId ?? "timeout"}`;
       const found = byKey.get(key);
       if (found) {

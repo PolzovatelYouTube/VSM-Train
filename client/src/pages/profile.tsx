@@ -54,12 +54,10 @@ export default function Profile() {
           <Card data-testid="card-skills">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Навыки</CardTitle>
-              <p className="text-xs text-muted-foreground">Среднее по последним {SKILL_WINDOW} рейсам. Отметка на шкале — порог «освоено».</p>
+              <p className="text-xs text-muted-foreground">Среднее по последним {SKILL_WINDOW} рейсам. В каждом лепестке — текущая оценка; рядом указан порог «освоено».</p>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {profile.skills.map((s) => (
-                <SkillRow key={s.key} skill={s} />
-              ))}
+            <CardContent>
+              <SkillPetalChart skills={profile.skills} />
             </CardContent>
           </Card>
 
@@ -153,6 +151,101 @@ export default function Profile() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+const PETAL_COLORS = ["#9c8cf2", "#a99cf5", "#ffad5d", "#43c8e5", "#38b9dc"];
+const PETAL_CENTER = { x: 280, y: 205 };
+const PETAL_RADIUS = 122;
+const LABEL_RADIUS = 174;
+const PETAL_GAP = 5;
+
+function petalPoint(angle: number, radius: number) {
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: PETAL_CENTER.x + Math.cos(radians) * radius,
+    y: PETAL_CENTER.y + Math.sin(radians) * radius,
+  };
+}
+
+function petalPath(index: number, total: number, radius: number) {
+  const segment = 360 / total;
+  const angle = -90 + index * segment;
+  const halfSegment = segment / 2;
+  const start = petalPoint(angle - halfSegment + PETAL_GAP, 10);
+  const outerStart = petalPoint(angle - halfSegment + PETAL_GAP, radius);
+  const outerEnd = petalPoint(angle + halfSegment - PETAL_GAP, radius);
+  const end = petalPoint(angle + halfSegment - PETAL_GAP, 10);
+  const tip = petalPoint(angle, radius + 8);
+
+  return `M ${start.x} ${start.y} L ${outerStart.x} ${outerStart.y} Q ${tip.x} ${tip.y} ${outerEnd.x} ${outerEnd.y} L ${end.x} ${end.y} Q ${PETAL_CENTER.x} ${PETAL_CENTER.y} ${start.x} ${start.y} Z`;
+}
+
+function SkillPetalChart({ skills }: { skills: Skill[] }) {
+  return (
+    <div className="space-y-3">
+      <svg
+        viewBox="0 0 560 420"
+        className="mx-auto block w-full max-w-[560px] overflow-visible"
+        role="img"
+        aria-label="Диаграмма навыков. Длина лепестка соответствует текущей оценке навыка от нуля до ста."
+      >
+        <title>Навыки</title>
+        {skills.map((skill, index) => {
+          const value = skill.value ?? 0;
+          const angle = -90 + index * (360 / skills.length);
+          const label = petalPoint(angle, LABEL_RADIUS);
+          const score = petalPoint(angle, Math.max(48, (PETAL_RADIUS * value * 0.62) / 100));
+          const horizontal = Math.cos((angle * Math.PI) / 180);
+          const color = PETAL_COLORS[index % PETAL_COLORS.length];
+
+          return (
+            <g key={skill.key} data-testid={`skill-${skill.key}`}>
+              <path d={petalPath(index, skills.length, PETAL_RADIUS)} fill={color} opacity="0.13" />
+              {skill.value !== null && <path d={petalPath(index, skills.length, Math.max(18, (PETAL_RADIUS * value) / 100))} fill={color} />}
+              <text
+                x={label.x}
+                y={label.y}
+                textAnchor={horizontal < -0.2 ? "end" : horizontal > 0.2 ? "start" : "middle"}
+                dominantBaseline="middle"
+                className="fill-muted-foreground text-[12px] font-medium"
+              >
+                {skill.label}
+              </text>
+              {skill.value !== null && (
+                <text x={score.x} y={score.y} textAnchor="middle" dominantBaseline="middle" className="fill-slate-800 text-[13px] font-bold dark:fill-slate-950">
+                  {value}%
+                </text>
+              )}
+            </g>
+          );
+        })}
+        <circle cx={PETAL_CENTER.x} cy={PETAL_CENTER.y} r="7" className="fill-card stroke-card-border" strokeWidth="2" />
+      </svg>
+
+      <div className="grid gap-2 sm:grid-cols-2" aria-label="Подробности навыков">
+        {skills.map((s) => {
+          const threshold = SKILL_THRESHOLDS[s.key];
+          return (
+            <div key={s.key} className="flex min-w-0 items-center gap-2 rounded-lg bg-muted/45 px-2.5 py-2 text-xs">
+              <span className="truncate font-medium">{s.label}</span>
+              {s.status !== "none" && (
+                <Badge variant="outline" className={cn("ml-auto shrink-0 text-[10px] px-1.5", s.status === "mastered" ? "border-[hsl(var(--safety))]/50 text-[hsl(var(--safety))]" : "border-[hsl(var(--danger))]/50 text-[hsl(var(--danger))]") }>
+                  {s.status === "mastered" ? "освоено" : "проседает"}
+                </Badge>
+              )}
+              {s.trend !== null && s.trend !== 0 && (
+                <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-mono", s.trend > 0 ? "text-[hsl(var(--safety))]" : "text-[hsl(var(--danger))]") }>
+                  {s.trend > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                  {s.trend > 0 ? `+${s.trend}` : s.trend}
+                </span>
+              )}
+              <span className="shrink-0 font-mono tabular text-muted-foreground">{s.value ?? "—"}/<span className="text-[10px]">{threshold}</span></span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

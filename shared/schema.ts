@@ -5,7 +5,7 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { scenarioDataSchema, EVENT_CATEGORIES } from "./scenario";
+import { scenarioDataSchema, EVENT_CATEGORIES, workloadEntrySchema } from "./scenario";
 import type { LevelInfo, ExpiringPoints } from "./gamification";
 import type { Skill, MemberSkills, TeamMistake } from "./analytics";
 
@@ -33,6 +33,8 @@ export const teams = sqliteTable("teams", {
 export const players = sqliteTable("players", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  passwordHash: text("password_hash"),
+  role: text("role").notNull().default("conductor"),
   teamId: integer("team_id"), // null — проводник ещё не закреплён за бригадой
   xp: integer("xp").notNull().default(0), // опыт: за попытки и челленджи, определяет уровень
   trainingPoints: integer("training_points").notNull().default(0),
@@ -51,10 +53,21 @@ export const attempts = sqliteTable("attempts", {
   avgReactionMs: integer("avg_reaction_ms").notNull(),
   competencies: text("competencies").notNull(), // JSON
   log: text("log").notNull(), // JSON LogEntry[]
+  workload: text("workload").notNull().default("[]"), // JSON WorkloadEntry[], рассчитан сервером
   xp: integer("xp").notNull().default(0), // сколько опыта дала попытка
   points: integer("points").notNull().default(0), // баллы практики за попытку (сгорают через POINTS_TTL_DAYS)
   createdAt: integer("created_at").notNull(),
 });
+
+/** Неизменяемый факт первой выдачи достижения игроку. */
+export const achievementAwards = sqliteTable("achievement_awards", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  playerId: integer("player_id").notNull(),
+  achievementId: text("achievement_id").notNull(),
+  awardedAt: integer("awarded_at").notNull(),
+  sourceAttemptId: integer("source_attempt_id").notNull(),
+});
+export type AchievementAward = typeof achievementAwards.$inferSelect;
 
 // Челлендж — ограниченное по времени задание с наградой в опыте.
 // rule — декларативное правило (challengeRuleSchema), прогресс считается по попыткам в окне startsAt..endsAt.
@@ -123,9 +136,45 @@ export type ScenarioRow = typeof scenarios.$inferSelect;
 
 export const insertPlayerSchema = createInsertSchema(players).pick({ name: true });
 export type Player = typeof players.$inferSelect;
+export const USER_ROLES = ["conductor", "supervisor"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+export type PublicPlayer = Omit<Player, "passwordHash">;
 export type Depot = typeof depots.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 
+/**
+ * Действие, присланное клиентом для авторитетного воспроизведения рейса.
+ * timestampMs — виртуальное время симуляции от начала рейса, а не результат
+ * расчёта. Сервер сопоставляет nodeId/choiceId с текущим состоянием движка.
+ */
+export const replayActionSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("choice"),
+    nodeId: z.string().min(1),
+    choiceId: z.string().min(1),
+    eventId: z.string().min(1).optional(), // старые журналы без eventId читаются только при однозначном фокусе
+    timestampMs: z.number().int().min(0),
+  }),
+  z.object({
+    type: z.literal("trigger"),
+    eventId: z.string().min(1),
+    timestampMs: z.number().int().min(0),
+  }),
+  z.object({ type: z.literal("select"), eventId: z.string().min(1), timestampMs: z.number().int().min(0) }),
+  z.object({ type: z.literal("leave"), timestampMs: z.number().int().min(0) }),
+  z.object({ type: z.literal("continue"), eventId: z.string().min(1), nodeId: z.string().min(1), timestampMs: z.number().int().min(0) }),
+]);
+export type ReplayAction = z.infer<typeof replayActionSchema>;
+
+/** Публичный контракт POST /api/attempts: никаких начисленных клиентом очков. */
+export const submitAttemptSchema = z.object({
+  scenarioId: z.number().int(),
+  mode: z.enum(["training", "check"]),
+  actions: z.array(replayActionSchema).max(1_000),
+});
+export type SubmitAttempt = z.infer<typeof submitAttemptSchema>;
+
+/** Внутренний, уже рассчитанный сервером формат для сохранения попытки. */
 export const insertAttemptSchema = z.object({
   playerName: z.string().min(1),
   scenarioId: z.number().int(),
@@ -137,6 +186,7 @@ export const insertAttemptSchema = z.object({
   avgReactionMs: z.number().int(),
   competencies: z.record(z.string(), z.number()),
   log: z.array(z.any()),
+  workload: z.array(workloadEntrySchema).optional(),
 });
 export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
 export type Attempt = typeof attempts.$inferSelect;
@@ -147,9 +197,11 @@ export interface Achievement {
   title: string;
   description: string;
   unlocked: boolean;
+  awardedAt?: number;
+  sourceAttemptId?: number;
 }
 
-export interface PlayerProfile extends Player {
+export interface PlayerProfile extends PublicPlayer {
   level: LevelInfo;
   activePoints: number; // несгоревшие баллы практики
   expiring: ExpiringPoints | null;

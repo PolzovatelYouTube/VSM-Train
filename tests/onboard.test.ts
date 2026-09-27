@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chooseOption, createSim, findNode, openNode, tick, computeResult, visibleOptions } from "../shared/engine";
+import { chooseOption, createSim, findNode, openNode, tick, computeResult, visibleOptions, continueInformation } from "../shared/engine";
 import { scenarioDataSchema } from "../shared/scenario";
 import { onboardScenario } from "../shared/scenarios/onboard";
 
@@ -29,7 +29,8 @@ describe("сценарий «Ситуации на борту»", () => {
   it("эталонная цепочка №4 проходит без нарушений ролевой модели", () => {
     const s = createSim(data);
     openNode(s, data, "ev_pet", "p1");
-    for (const id of ["p1a", "p2a", "p3a", "p4a"]) pick(s, id);
+    for (const id of ["p1a", "p2a", "p3a"]) pick(s, id);
+    expect(continueInformation(s, data)).toBe(true);
     expect(s.active).toBeNull();
     expect(s.log.every((l) => !l.violation)).toBe(true);
     expect(computeResult(s, data).competencies.roleModel).toBe(100);

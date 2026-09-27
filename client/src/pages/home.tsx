@@ -1,120 +1,165 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Plus, Pencil, GraduationCap, ClipboardCheck, Trash2, TrainFront, Users, Zap, Trophy, Wrench, Gamepad2, Eye } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Link } from "wouter";
+import { GraduationCap, ClipboardCheck, TrainFront, Users, Zap, Trophy, MessageCircle, MousePointerClick } from "lucide-react";
 import { Shell } from "@/components/app/Shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useScenarios, useSaveScenario, useDeleteScenario, useLeaderboard } from "@/lib/api";
-import { deleteScenarioMessage } from "@/lib/deleteConfirmation";
-import { buildCar, type ScenarioData } from "@shared/scenario";
+import { useScenarios, useLeaderboard } from "@/lib/api";
 import { useApp } from "@/lib/player";
 
-function emptyScenario(): ScenarioData {
-  const car = buildCar(1, "comfort", 12);
-  return {
-    version: 1,
-    train: { name: "Новый состав", cars: [car] },
-    actors: [{ id: "a_conductor", name: "Проводник (вы)", role: "conductor", ticket: null, spawn: { carId: car.id, x: 1, y: 2 }, mood: 100, steps: [] }],
-    events: [],
-    durationSec: 60,
-    initial: { loyalty: 70, safety: 80 },
-  };
+/** Краткая карта продукта с небольшими визуальными примерами реальных действий. */
+function HowItWorks() {
+  return (
+    <section className="mb-7" aria-labelledby="how-it-works-title" data-testid="section-how-it-works">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 id="how-it-works-title" className="text-xl font-bold tracking-tight">Как проходит тренировка</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Выберите рабочую ситуацию, принимайте решения по ходу рейса и получите персональный разбор навыков.</p>
+        </div>
+        <span className="text-xs text-muted-foreground">Ситуация → действие → обратная связь</span>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base"><MousePointerClick className="size-4 text-primary" /> 1. Выберите ситуацию и режим</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="h-32 rounded-lg border bg-muted/35 p-2.5 text-xs">
+              <div className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 shadow-sm">
+                <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10"><TrainFront className="size-4 text-primary" /></span>
+                <span className="min-w-0"><b className="block truncate">Ситуации на борту</b><span className="text-[10px] text-muted-foreground">4 рабочих события</span></span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="rounded-md border border-primary/35 bg-primary/5 p-2"><GraduationCap className="mb-0.5 size-3.5 text-primary" /><b className="block">Тренировка</b><span className="text-[10px] text-muted-foreground">пауза и подсказки</span></div>
+                <div className="rounded-md border border-[hsl(var(--danger))]/30 bg-card p-2"><ClipboardCheck className="mb-0.5 size-3.5 text-[hsl(var(--danger))]" /><b className="block">Проверка</b><span className="text-[10px] text-muted-foreground">таймер и рейтинг</span></div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">Выберите готовый сценарий и формат прохождения. В тренировке доступны пауза и подсказки, а в проверке решения принимаются на время.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base"><MessageCircle className="size-4 text-[hsl(var(--loyalty))]" /> 2. Действуйте по обстановке</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="h-32 rounded-lg border bg-muted/35 p-2.5 text-xs">
+              <div className="flex gap-1.5 text-[10px]">
+                <span className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-md bg-[hsl(var(--danger))]/10 px-2 py-1 text-[hsl(var(--danger))]"><Zap className="size-3 shrink-0" /><span className="truncate">Вагон 6 · срочно</span></span>
+                <span className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-primary"><Users className="size-3 shrink-0" /><span className="truncate">Вагон 4 · помощь</span></span>
+              </div>
+              <div className="mt-2 rounded-md border bg-card p-2 shadow-sm">
+                <span className="block text-[10px] text-muted-foreground">Что требует внимания первым?</span>
+                <span className="mt-1 flex items-center justify-between gap-2 rounded bg-primary px-2 py-1.5 font-medium text-primary-foreground"><span className="truncate">Устранить риск безопасности</span><span aria-hidden="true">→</span></span>
+              </div>
+              <div className="mt-1.5 flex gap-1.5 text-[10px]"><span className="rounded bg-[hsl(var(--safety))]/15 px-1.5 py-0.5 text-[hsl(var(--safety))]">безопасность +5</span><span className="rounded bg-[hsl(var(--loyalty))]/15 px-1.5 py-0.5 text-[hsl(var(--loyalty))]">лояльность −2</span></div>
+            </div>
+            <p className="text-sm text-muted-foreground">Следите за событиями в разных вагонах, общайтесь с пассажирами и расставляйте приоритеты. Решения влияют на безопасность и лояльность.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base"><ClipboardCheck className="size-4 text-[hsl(var(--safety))]" /> 3. Получите разбор рейса</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="h-32 rounded-lg border bg-muted/35 p-2.5 text-xs">
+              <div className="flex items-center justify-between"><b>Результат рейса</b><span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono font-bold text-primary">84 / 100</span></div>
+              <div className="mt-2 space-y-1.5">
+                <div><div className="mb-0.5 flex justify-between text-[10px]"><span>Безопасность</span><b>88%</b></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full w-[88%] rounded-full bg-[hsl(var(--safety))]" /></div></div>
+                <div><div className="mb-0.5 flex justify-between text-[10px]"><span>Лояльность</span><b>76%</b></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full w-[76%] rounded-full bg-[hsl(var(--loyalty))]" /></div></div>
+              </div>
+              <div className="mt-2 rounded-md border border-[hsl(var(--danger))]/20 bg-card px-2 py-1.5 text-[10px]"><span className="text-muted-foreground">Укрепить навык:</span> <b>скорость реакции</b></div>
+            </div>
+            <p className="text-sm text-muted-foreground">После завершения вы увидите последствия решений, ошибки и сильные стороны. Результат сохранится в профиле и подскажет, что улучшить.</p>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+  );
 }
 
-type HomeMode = "play" | "create";
-const MODE_KEY = "vsm-home-mode";
+function LeaderboardPreview({ board, player }: { board: { name: string; activePoints: number; trainingPoints: number }[] | undefined; player: string }) {
+  const top = board?.slice(0, 3) ?? [];
+  const podium = [top[1], top[0], top[2]];
+  const heights = ["h-14", "h-20", "h-11"];
 
-/** Два входа: «Начать смену» (прохождение) и «Создать сценарий» (конструктор) */
-function ModeSwitch({ mode, onChange }: { mode: HomeMode; onChange: (m: HomeMode) => void }) {
-  const items: { key: HomeMode; title: string; text: string; icon: typeof Gamepad2 }[] = [
-    { key: "play", title: "Начать смену", text: "Пройти рейс в вагоне: пассажиры, диалоги, последствия решений. Тренировка или проверка.", icon: Gamepad2 },
-    { key: "create", title: "Создать сценарий", text: "Конструктор: состав, пассажиры, события, ветвления и визуальная сцена. Предпросмотр игры.", icon: Wrench },
-  ];
   return (
-    <div className="grid gap-3 sm:grid-cols-2 mb-6" role="tablist" aria-label="Режим работы">
-      {items.map(({ key, title, text, icon: Icon }) => {
-        const active = key === mode;
-        return (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(key)}
-            data-testid={`button-mode-${key}`}
-            className={cn(
-              "group relative overflow-hidden rounded-xl border p-5 text-left min-h-[44px] transition-colors",
-              active
-                ? key === "play"
-                  ? "border-primary bg-primary text-primary-foreground shadow-lg"
-                  : "border-foreground/80 bg-foreground text-background shadow-lg"
-                : "bg-card hover:bg-accent",
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <span className={cn("grid place-items-center size-11 shrink-0 rounded-lg", active ? "bg-white/15" : "bg-muted")}>
-                <Icon className="size-5" />
-              </span>
-              <span>
-                <span className="block text-lg font-bold tracking-tight">{title}</span>
-                <span className={cn("block text-sm mt-0.5", active ? "opacity-85" : "text-muted-foreground")}>{text}</span>
-              </span>
+    <section className="mx-auto mt-8 w-full max-w-3xl rounded-[28px] border border-border bg-gradient-to-b from-card to-muted/45 p-4 text-card-foreground shadow-sm sm:p-6" aria-labelledby="leaderboard-preview-title" data-testid="card-leaderboard-preview">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 id="leaderboard-preview-title" className="flex items-center gap-2 text-lg font-bold"><Trophy className="size-5 text-[hsl(var(--loyalty))]" /> Лидеры практики</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Рейтинг по несгоревшим баллам практики</p>
+        </div>
+        <Button variant="outline" size="sm" asChild><Link href="/leaderboard">Полный рейтинг →</Link></Button>
+      </div>
+
+      {top.length > 0 ? (
+        <>
+          <div className="mx-auto mt-5 grid max-w-md grid-cols-3 items-end gap-2 px-3 text-center">
+            {podium.map((entry, index) => {
+              const rank = index === 0 ? 2 : index === 1 ? 1 : 3;
+              if (!entry) return <div key={rank} />;
+              return (
+                <div key={entry.name} className="flex flex-col items-center gap-1">
+                  <Avatar name={entry.name} rank={rank} />
+                  <span className="max-w-full truncate text-xs font-medium">{entry.name}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary">{entry.activePoints}</span>
+                  <div className={`grid w-full place-items-center rounded-t-xl bg-primary/15 font-mono text-xl font-bold text-primary ${heights[index]}`}>{rank}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-border bg-background/45">
+            <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3 py-2 text-xs text-muted-foreground">
+              <span>#</span><span>Проводник</span><span>Практика</span>
             </div>
-          </button>
-        );
-      })}
-    </div>
+            {board?.slice(0, 6).map((entry, index) => (
+              <div key={entry.name} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-border/70 px-3 py-2 last:border-0" data-testid={`row-top-${index}`}>
+                <span className="grid size-5 place-items-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">{index + 1}</span>
+                <span className="flex min-w-0 items-center gap-2"><Avatar name={entry.name} rank={index + 1} small /><span className={`truncate text-sm ${entry.name === player ? "font-bold" : "font-medium"}`}>{entry.name}</span></span>
+                <span className="font-mono text-sm font-semibold tabular text-primary">{entry.activePoints}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="mt-5 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Ещё никто не проходил рейс.</div>
+      )}
+    </section>
   );
+}
+
+function Avatar({ name, rank, small = false }: { name: string; rank: number; small?: boolean }) {
+  const colors = ["bg-primary/15 text-primary", "bg-[hsl(var(--loyalty))]/15 text-[hsl(var(--loyalty))]", "bg-[hsl(var(--safety))]/15 text-[hsl(var(--safety))]"];
+  const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  return <span className={`grid shrink-0 place-items-center rounded-lg font-bold ${small ? "size-6 text-[10px]" : "size-9 text-xs"} ${colors[(rank - 1) % colors.length]}`}>{initials}</span>;
 }
 
 export default function Home() {
   const { data: scenarios, isLoading } = useScenarios();
   const { data: board } = useLeaderboard();
-  const save = useSaveScenario();
-  const del = useDeleteScenario();
-  const [, navigate] = useLocation();
-  const { player } = useApp();
-  const [mode, setModeState] = useState<HomeMode>(() => (localStorage.getItem(MODE_KEY) === "create" ? "create" : "play"));
-  const setMode = (m: HomeMode) => {
-    setModeState(m);
-    localStorage.setItem(MODE_KEY, m);
-  };
-
-  const create = async () => {
-    const s = await save.mutateAsync({
-      body: { name: "Новый сценарий", description: "", difficulty: 1, data: emptyScenario() },
-    });
-    navigate(`/editor/${s.id}`);
-  };
-
-  const remove = (scenario: { id: number; name: string }) => {
-    if (!window.confirm(deleteScenarioMessage(scenario))) return;
-    del.mutate(scenario.id);
-  };
+  const { player, user } = useApp();
 
   return (
     <Shell>
-      <ModeSwitch mode={mode} onChange={setMode} />
+      <header className="mb-6 max-w-3xl">
+        <h1 className="text-2xl font-bold tracking-tight">Тренажёр рабочих ситуаций</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Здесь проводник отрабатывает реальные сценарии в вагоне: от общения с пассажиром до безопасного решения нештатной ситуации.</p>
+      </header>
+      <HowItWorks />
 
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">{mode === "play" ? "Выберите смену" : "Мои сценарии"}</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            {mode === "play"
-              ? "Тренировка — с паузой на диалогах и подсказками. Проверка — таймер на каждое решение, результат идёт в рейтинг."
-              : "Собирайте состав, расставляйте пассажиров, задавайте поведение и нештатные события, настраивайте визуальную сцену."}
-          </p>
+          <h2 className="text-xl font-bold tracking-tight">Выберите смену</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">Тренировка — с паузой на диалогах и подсказками. Проверка — таймер на каждое решение, результат идёт в рейтинг.</p>
         </div>
-        {mode === "create" && (
-          <Button onClick={create} disabled={save.isPending} className="min-h-11" data-testid="button-create-scenario">
-            <Plus className="size-4 mr-1.5" /> Новый сценарий
-          </Button>
-        )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px] items-start">
+      <div>
         <section className="grid gap-4 sm:grid-cols-2 content-start">
           {isLoading &&
             Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-lg" />)}
@@ -142,44 +187,20 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {mode === "play" ? (
-                    <>
-                      <Button className="min-h-11 flex-1" asChild data-testid={`button-train-${s.id}`}>
-                        <Link href={`/play/${s.id}/training`}>
-                          <GraduationCap className="size-4 mr-1" /> Тренировка
-                        </Link>
-                      </Button>
-                      <Button className="min-h-11 flex-1" variant="secondary" asChild data-testid={`button-check-${s.id}`}>
-                        <Link href={`/play/${s.id}/check`}>
-                          <ClipboardCheck className="size-4 mr-1" /> Проверка
-                        </Link>
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button className="min-h-11" asChild data-testid={`button-edit-${s.id}`}>
-                        <Link href={`/editor/${s.id}`}>
-                          <Pencil className="size-4 mr-1" /> Редактор
-                        </Link>
-                      </Button>
-                      <Button className="min-h-11" variant="outline" asChild data-testid={`button-preview-${s.id}`}>
-                        <Link href={`/play/${s.id}/training`}>
-                          <Eye className="size-4 mr-1" /> Предпросмотр
-                        </Link>
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="ml-auto size-11 text-muted-foreground hover:text-destructive"
-                        aria-label={`Удалить сценарий «${s.name}»`}
-                        title="Удалить сценарий"
-                        disabled={del.isPending}
-                        onClick={() => remove(s)}
-                        data-testid={`button-delete-${s.id}`}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </>
+                  <Button className="min-h-11 flex-1" asChild data-testid={`button-train-${s.id}`}>
+                    <Link href={`/play/${s.id}/training`}>
+                      <GraduationCap className="size-4 mr-1" /> Тренировка
+                    </Link>
+                  </Button>
+                  <Button className="min-h-11 flex-1" variant="secondary" asChild data-testid={`button-check-${s.id}`}>
+                    <Link href={`/play/${s.id}/check`}>
+                      <ClipboardCheck className="size-4 mr-1" /> Проверка
+                    </Link>
+                  </Button>
+                  {user?.role === "supervisor" && (
+                    <Button asChild variant="outline">
+                      <Link href={`/editor/${s.id}`}>Редактировать</Link>
+                    </Button>
                   )}
                 </div>
               </CardContent>
@@ -187,57 +208,11 @@ export default function Home() {
           ))}
           {scenarios && scenarios.length === 0 && (
             <div className="sm:col-span-2 rounded-lg border border-dashed p-10 text-center text-muted-foreground">
-              {mode === "play" ? "Пока нет сценариев. Переключитесь в «Создать сценарий»." : "Пока нет сценариев. Создайте первый."}
+              Пока нет доступных сценариев.
             </div>
           )}
         </section>
-
-        <aside className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="size-4 text-[hsl(var(--loyalty))]" /> Топ проводников
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {board?.slice(0, 5).map((e, i) => (
-                <div key={e.name} className="flex items-center gap-2 text-sm" data-testid={`row-top-${i}`}>
-                  <span className="font-mono text-muted-foreground w-4">{i + 1}</span>
-                  <span className={e.name === player ? "font-semibold" : ""}>{e.name}</span>
-                  <span className="ml-auto font-mono tabular text-xs">
-                    <span className="text-[hsl(var(--safety))]">{e.activePoints}</span>
-                    <span className="text-muted-foreground"> / {e.trainingPoints}</span>
-                  </span>
-                </div>
-              ))}
-              {board && board.length === 0 && <p className="text-sm text-muted-foreground">Ещё никто не проходил рейс.</p>}
-              <p className="text-xs text-muted-foreground pt-1">практика / обучение</p>
-              <Button variant="ghost" size="sm" className="px-0" asChild>
-                <Link href="/leaderboard">Полный рейтинг →</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Как это устроено</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>
-                <b className="text-foreground">Редактор</b> — карта вагона сверху. Кликните по клетке, чтобы поставить
-                пассажира, задайте ему билет и список шагов: идти, сесть, ждать, запустить событие.
-              </p>
-              <p>
-                <b className="text-foreground">Событие</b> — граф диалога с вариантами ответа, таймером и эффектами на
-                лояльность и безопасность.
-              </p>
-              <p>
-                <b className="text-foreground">Тренировка</b> ставит рейс на паузу и показывает подсказки.{" "}
-                <b className="text-foreground">Проверка</b> идёт без пауз и фиксирует скорость реакции.
-              </p>
-            </CardContent>
-          </Card>
-        </aside>
+        <LeaderboardPreview board={board} player={player} />
       </div>
     </Shell>
   );

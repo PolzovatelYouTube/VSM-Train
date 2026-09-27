@@ -11,8 +11,10 @@ import {
   type CarType,
   type Landscape,
   LANDSCAPES,
+  cellAt,
 } from "./scenario";
-import { type SimState, type LogEntry, findEvent, findNode } from "./engine";
+import { type SimState, type LogEntry, type RuntimeActor, type Facing, findEvent, findNode } from "./engine";
+import { TRAIN_NAVMESH_REGISTRY, type Vector2D } from "./scenarios/all_cars_navmesh";
 
 // ───────────────────────────── Пресеты персонажей ─────────────────────────────
 
@@ -39,6 +41,33 @@ export const SPRITE_PRESET_LABEL: Record<SpritePreset, string> = {
   troublemaker: "Куртка, кепка",
 };
 
+const LEGACY_PRESET_MAP: Record<string, SpritePreset> = {
+  passenger: "passenger-m",
+  passenger_f: "passenger-f",
+  passenger_m: "passenger-m",
+  woman: "passenger-f",
+  man: "passenger-m",
+
+  elderly: "elderly-m",
+  elderly_f: "elderly-f",
+  elderly_m: "elderly-m",
+  granny: "elderly-f",
+  grandpa: "elderly-m",
+
+  business: "vip",
+  businessman: "vip",
+  vip_passenger: "vip",
+
+  kid: "child",
+  child_passenger: "child",
+
+  hooligan: "troublemaker",
+  badguy: "troublemaker",
+
+  staff: "conductor",
+  provodnik: "conductor",
+};
+
 /** Стабильный хеш строки — чтобы пассажир без пресета всегда выглядел одинаково */
 const hash = (s: string) => s.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
@@ -62,10 +91,18 @@ export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
 export const isSpritePreset = (v: unknown): v is SpritePreset =>
   typeof v === "string" && (SPRITE_PRESETS as readonly string[]).includes(v);
 
+function normalizePreset(value: unknown): SpritePreset | null {
+  if (typeof value !== "string") return null;
+  if (isSpritePreset(value)) return value;
+
+  const normalized = value.trim().toLowerCase();
+  return LEGACY_PRESET_MAP[normalized] ?? null;
+}
+
 /** Пресет актора: авторский, если он известен, иначе — по роли */
 export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual">): SpritePreset {
-  const p = actor.visual?.preset;
-  return isSpritePreset(p) ? p : defaultPreset(actor.role, actor.id);
+  const preset = normalizePreset(actor.visual?.preset);
+  return preset ?? defaultPreset(actor.role, actor.id);
 }
 
 export const resolveLandscape = (data: ScenarioData): Landscape => {
@@ -84,6 +121,13 @@ export type CharacterState = "idle" | "walk" | "sit" | "talk" | "listen" | "posi
 export type Emotion = "neutral" | "happy" | "worried" | "angry";
 export type ConsequenceKind = "positive" | "negative" | "timeout";
 
+export interface ScenePlacement {
+  /** Координаты в процентах внутри изометрического изображения 1448×1086. */
+  x: number;
+  y: number;
+  zIndex: number;
+}
+
 export interface SceneCharacter {
   id: string;
   name: string;
@@ -97,9 +141,11 @@ export interface SceneCharacter {
   seated: boolean;
   state: CharacterState;
   emotion: Emotion;
-  facing: "left" | "right";
+  facing: Facing;
   dimmed: boolean;
   bubble: string | null;
+  placement: ScenePlacement;
+  usesWheelchair: boolean;
 }
 
 export interface SceneConsequence {
@@ -162,6 +208,42 @@ export function matchSpeaker(data: ScenarioData, speaker: string, preferId?: str
 
 const carOf = (data: ScenarioData, id?: string): Car | undefined => data.train.cars.find((c) => c.id === id);
 
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+function pointOnSpine(spine: Vector2D[], progress: number): Vector2D {
+  if (spine.length < 2) return spine[0] ?? { x: 50, y: 50 };
+  const scaled = Math.min(1, Math.max(0, progress)) * (spine.length - 1);
+  const index = Math.min(spine.length - 2, Math.floor(scaled));
+  const local = scaled - index;
+  return { x: lerp(spine[index].x, spine[index + 1].x, local), y: lerp(spine[index].y, spine[index + 1].y, local) };
+}
+
+/** Чистая проекция фактической позиции движка на изометрическую подложку вагона. */
+export function resolveNavmeshPlacement(car: Car, actor: RuntimeActor): ScenePlacement {
+  const mesh = TRAIN_NAVMESH_REGISTRY[car.type];
+  const cell = cellAt(car, Math.round(actor.x), Math.round(actor.y));
+  const seat = cell?.seat ? mesh.seats[cell.seat] : undefined;
+
+  if (seat) {
+    const pos = actor.seated && actor.path.length === 0 ? seat.seatPos : seat.approachPos;
+    return { x: pos.x, y: pos.y, zIndex: actor.seated && actor.path.length === 0 ? seat.depth + 1 : Math.round(pos.y) };
+  }
+
+  const pos = pointOnSpine(mesh.aisleSpine, actor.x / Math.max(1, car.length - 1));
+  return { x: pos.x, y: pos.y, zIndex: Math.round(pos.y) };
+}
+
+function resolveSeatFacing(
+    car: Car,
+    actor: RuntimeActor,
+  ): Facing | undefined {
+    const mesh = TRAIN_NAVMESH_REGISTRY[car.type];
+    const cell = cellAt(car, Math.round(actor.x), Math.round(actor.y));
+    const seat = cell?.seat ? mesh.seats[cell.seat] : undefined;
+
+    return seat?.facing ?? (seat ? mesh.seatFacing : undefined);
+}
+
 export function projectGameScene(data: ScenarioData, sim: SimState, opts: ProjectOptions = {}): GameSceneModel {
   const follow = opts.follow ?? true;
   const conductor = data.actors.find((a) => a.role === "conductor");
@@ -174,7 +256,7 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
   const focusedRt = sim.actors.find((a) => a.id === focusedActorId);
 
   const car =
-    (follow && ev && carOf(data, focusedRt?.carId)) ||
+    (follow && ev && carOf(data, ev.location?.carId ?? focusedRt?.carId)) ||
     carOf(data, opts.viewCarId) ||
     carOf(data, conductorRt?.carId) ||
     data.train.cars[0];
@@ -221,11 +303,15 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
       }
 
       // Направление взгляда: по ходу движения; в диалоге — на собеседника
-      let facing: "left" | "right" = ra.x > len / 2 ? "left" : "right";
-      if (walking && next && next.carId === ra.carId && Math.abs(next.x - ra.x) > 0.01) facing = next.x > ra.x ? "right" : "left";
-      else if (inDialogue && focusedRt && focusedRt.carId === car.id) {
+      let facing: Facing = ra.facing ?? (ra.x > len / 2 ? "left" : "right");
+      if (ra.seated && !walking) {
+        facing = resolveSeatFacing(car, ra) ?? facing;
+      } else if (inDialogue && focusedRt && focusedRt.carId === car.id) {
         const other = isFocused ? conductorRt : focusedRt;
-        if (other && other.carId === car.id && other.id !== ra.id) facing = other.x >= ra.x ? "right" : "left";
+
+        if (other && other.carId === car.id && other.id !== ra.id) {
+          facing = other.x >= ra.x ? "right" : "left";
+        }
       }
 
       // Глубина: 0 — у окна дальнего борта, 1 — ближний край; проход — посередине
@@ -245,7 +331,11 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
         emotion,
         facing,
         dimmed: inDialogue && !isFocused && !isConductor && !(speaker && speaker.id === ra.id),
-        bubble: ra.bubble?.text ?? null,
+        // Во время визуальной паузы показывается только реакция на выбор. Таймер bubble
+        // не тикает вместе с симуляцией, поэтому старая реплика не должна оставаться в кадре.
+        bubble: phase === "consequence" ? null : ra.bubble?.text ?? null,
+        placement: resolveNavmeshPlacement(car, ra),
+        usesWheelchair: def.accessibilityNeeds?.includes("wheelchair") ?? false,
       };
     });
 

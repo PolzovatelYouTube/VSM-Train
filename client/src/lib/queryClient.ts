@@ -1,6 +1,19 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
+const TOKEN_KEY = "vsm-auth-token";
+
+export const getAuthToken = () => (typeof window === "undefined" ? null : window.localStorage.getItem(TOKEN_KEY));
+export const setAuthToken = (token: string | null) => {
+  if (typeof window === "undefined") return;
+  if (token) window.localStorage.setItem(TOKEN_KEY, token);
+  else window.localStorage.removeItem(TOKEN_KEY);
+};
+
+const authHeaders = (headers: HeadersInit = {}) => {
+  const token = getAuthToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+};
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -16,7 +29,7 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(`${API_BASE}${url}`, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: authHeaders(data ? { "Content-Type": "application/json" } : {}),
     body: data ? JSON.stringify(data) : undefined,
   });
 
@@ -30,7 +43,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(`${API_BASE}${queryKey.join("/")}`);
+    const res = await fetch(`${API_BASE}${queryKey.join("/")}`, { headers: authHeaders() });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

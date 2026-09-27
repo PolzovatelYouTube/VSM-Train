@@ -20,6 +20,7 @@ import {
   newLogEntries,
   consequenceKind,
   SPRITE_PRESETS,
+  resolveNavmeshPlacement,
 } from "../shared/visual";
 
 afterEach(() => vi.useRealTimers());
@@ -94,6 +95,23 @@ describe("projectGameScene", () => {
     expect(m.landscape).toBe("day");
     expect(m.characters.map((c) => c.id)).toContain("a_conductor");
     expect(m.characters.every((c) => !c.dimmed)).toBe(true);
+    expect(m.characters.every((c) => Number.isFinite(c.placement.x) && Number.isFinite(c.placement.y))).toBe(true);
+  });
+
+  it("navmesh сажает персонажа в координаты кресла и задаёт глубину", () => {
+    const data = demoScenario();
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "5A")!;
+    const s = createSim(data);
+    const actor = s.actors.find((a) => a.id === "a_trouble")!;
+    actor.carId = car.id;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.seated = true;
+    actor.path = [];
+
+    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(projectGameScene(data, s).characters.find((c) => c.id === actor.id)?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
   });
 
   it("dialogue: фокус на Громове, он говорит, остальные приглушены", () => {
@@ -125,6 +143,11 @@ describe("projectGameScene", () => {
     expect(m.characters.find((c) => c.id === "a_trouble")!.state).toBe("positive");
     expect(m.characters.find((c) => c.id === "a_trouble")!.emotion).toBe("happy");
 
+    const trouble = s.actors.find((a) => a.id === "a_trouble")!;
+    trouble.bubble = { text: "Прошлая реплика", until: s.t + 10 };
+    expect(projectGameScene(data, s).characters.find((c) => c.id === "a_trouble")!.bubble).toBe("Прошлая реплика");
+    expect(projectGameScene(data, s, { consequence: entry }).characters.find((c) => c.id === "a_trouble")!.bubble).toBeNull();
+
     pick(s, data, "o5");
     const bad = s.log[s.log.length - 1];
     expect(projectGameScene(data, s, { consequence: bad }).characters.find((c) => c.id === "a_trouble")!.state).toBe("negative");
@@ -154,6 +177,42 @@ describe("projectGameScene", () => {
     runUntilDialogue(s, data);
     const m = projectGameScene(data, s, { viewCarId: data.train.cars[0].id, follow: false });
     expect(m.carId).toBe(data.train.cars[0].id);
+  });
+
+  it("сидящий сохраняет направление кресла", () => {
+    const data = demoScenario();
+    const s = createSim(data);
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "5A")!;
+    const actor = s.actors.find((a) => a.id === "a_trouble")!;
+
+    actor.carId = car.id;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.path = [];
+    actor.seated = true;
+    actor.facing = "right";
+
+    const projected = projectGameScene(data, s)
+      .characters.find((c) => c.id === actor.id);
+
+    expect(projected?.facing).toBe("left");
+  });
+
+  it("вертикальный waypoint не сбрасывает последнее направление", () => {
+    const data = demoScenario();
+    const s = createSim(data);
+    const actor = s.actors[0];
+
+    actor.facing = "left";
+    actor.path = [{
+      carId: actor.carId,
+      x: actor.x,
+      y: actor.y + 1,
+    }];
+
+    tick(s, 0.1, data, { pauseWhileDialogue: false });
+    expect(actor.facing).toBe("left");
   });
 });
 

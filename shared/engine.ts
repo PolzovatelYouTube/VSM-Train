@@ -18,6 +18,10 @@ import {
   type FlagValue,
   type RoleStep,
   type CarType,
+  type CarCapability,
+  type ServiceEntitlement,
+  type IncidentStatus,
+  type WorkloadEntry,
   ROLE_STEPS,
   ROLE_STEP_LABEL,
   cellAt,
@@ -44,12 +48,15 @@ export interface Waypoint {
   y: number;
 }
 
+export type Facing = "left" | "right";
+
 export interface RuntimeActor {
   id: string;
   carId: string;
   x: number; // дробная позиция для плавной анимации
   y: number;
   path: Waypoint[];
+  facing: Facing;
   stepIndex: number;
   waitUntil: number;
   seated: boolean;
@@ -71,6 +78,12 @@ export interface LogEntry {
   limitSec?: number; // сколько секунд было на решение (с учётом класса вагона)
   step?: RoleStep; // шаг ролевой модели выбранной реплики
   violation?: RoleViolation; // нарушение ролевой модели, если было
+  context?: { known: string[]; missing: string[] };
+  feedback?: string;
+  flagsSet?: Record<string, FlagValue>;
+  causes?: number[]; // индексы решений, установивших флаги триггера события
+  timeCostSec?: number;
+  cause?: "response_expired" | "escalation" | "ride_ended";
 }
 
 export type RoleViolation = "skipped_acknowledge" | "order";
@@ -83,6 +96,34 @@ export interface ActiveDialogue {
   limitSec?: number; // таймер узла × терпение класса вагона; undefined = без таймера
 }
 
+export interface RuntimeIncident {
+  eventId: string;
+  status: IncidentStatus;
+  triggeredAt?: number;
+  respondedAt?: number;
+  escalated: boolean;
+  responseExpired: boolean;
+  dialogue: ActiveDialogue | null;
+  context: Record<string, FlagValue>;
+  riskEpisodes: RiskEpisode[];
+}
+
+export interface RiskEpisode {
+  key: string;
+  startedAt: number;
+  severity: number;
+  urgency: "routine" | "urgent" | "critical";
+  responseWindowSec: number;
+  text: string;
+  noticedAt?: number;
+  responseAt?: number;
+  endedAt?: number;
+  failed?: boolean;
+  responseExpired?: boolean;
+}
+
+export const concurrentGameplay = (data: ScenarioData) => data.gameplay !== "sequential";
+
 export interface SimState {
   t: number;
   loyalty: number;
@@ -91,10 +132,19 @@ export interface SimState {
   fired: string[]; // события, которые уже запускались
   queue: string[]; // события, ожидающие показа
   active: ActiveDialogue | null;
+  incidents: Record<string, RuntimeIncident>;
   log: LogEntry[];
+  workload: WorkloadEntry[];
   flags: Record<string, FlagValue>; // выставляются вариантами ответа (option.set)
   feed: { t: number; text: string; kind: "info" | "warn" | "good" | "bad" }[];
   finished: boolean;
+  eventCauses?: Record<string, number[]>;
+  resources: {
+    availableSeats: Record<string, number>;
+    carTypes: Record<string, CarType>;
+    capabilities: Record<string, Partial<Record<CarCapability, boolean>>>;
+    serviceEntitlements: Partial<Record<ServiceEntitlement, boolean>>;
+  };
 }
 
 const clamp = (v: number, lo = METER_MIN, hi = METER_MAX) => Math.max(lo, Math.min(hi, v));
@@ -110,6 +160,7 @@ export function createSim(data: ScenarioData): SimState {
       x: a.spawn.x,
       y: a.spawn.y,
       path: [],
+      facing: "right" as const,
       stepIndex: 0,
       waitUntil: 0,
       seated: false,
@@ -121,8 +172,19 @@ export function createSim(data: ScenarioData): SimState {
     fired: [],
     queue: [],
     active: null,
+    incidents: Object.fromEntries(data.events.map((ev) => [ev.id, {
+      eventId: ev.id, status: "pending", escalated: false, responseExpired: false, dialogue: null, context: {}, riskEpisodes: [],
+    }])),
     log: [],
+    workload: [],
     flags: {},
+    eventCauses: {},
+    resources: {
+      availableSeats: Object.fromEntries(data.train.cars.map((car) => [car.id, car.availableSeats ?? 0])),
+      carTypes: Object.fromEntries(data.train.cars.map((car) => [car.id, car.type])),
+      capabilities: Object.fromEntries(data.train.cars.map((car) => [car.id, car.capabilities ?? {}])),
+      serviceEntitlements: data.serviceEntitlements ?? {},
+    },
     feed: [{ t: 0, text: "Рейс начался. Пассажиры занимают места.", kind: "info" }],
     finished: false,
   };
@@ -244,9 +306,10 @@ export interface TickOptions {
 
 export function tick(state: SimState, dt: number, data: ScenarioData, opts: TickOptions) {
   if (state.finished) return;
+  const concurrent = concurrentGameplay(data);
 
   // Таймер открытого диалога
-  if (state.active) {
+  if (state.active && !concurrent) {
     const limit = state.active.limitSec;
     if (!opts.pauseWhileDialogue && limit) {
       if (state.t + dt - state.active.openedAt >= limit) {
@@ -258,11 +321,12 @@ export function tick(state: SimState, dt: number, data: ScenarioData, opts: Tick
     if (opts.pauseWhileDialogue) return;
   }
 
-  state.t += dt;
+  state.t = concurrent ? Math.min(data.durationSec, state.t + dt) : state.t + dt;
+  if (concurrent && state.t + 1e-7 >= data.durationSec) state.t = data.durationSec;
 
   // Триггеры по времени и по условию (например, «лояльность упала ниже 30»)
   for (const ev of data.events) {
-    if (ev.trigger.type === "time" && state.t >= ev.trigger.atSec) triggerEvent(state, data, ev.id);
+    if (ev.trigger.type === "time" && state.t + 1e-7 >= ev.trigger.atSec) triggerEvent(state, data, ev.id);
     if (ev.trigger.type === "condition" && evalCondition(ev.trigger.if, state)) triggerEvent(state, data, ev.id);
   }
 
@@ -330,7 +394,22 @@ export function tick(state: SimState, dt: number, data: ScenarioData, opts: Tick
   }
 
   // Открыть следующее событие из очереди
-  if (!state.active && state.queue.length) openEvent(state, data, state.queue.shift()!);
+  if (concurrent) updateIncidents(state, data);
+  else if (!state.active && state.queue.length) openEvent(state, data, state.queue.shift()!);
+
+  if (concurrent && state.t >= data.durationSec) {
+    for (const incident of Object.values(state.incidents)) {
+      if (incident.status === "active" || incident.status === "waiting") {
+        const node = incident.dialogue && findNode(data, incident.eventId, incident.dialogue.nodeId);
+        if (node && effectiveNodeKind(node, state) === "decision")
+          incidentPenalty(state, data, incident, "ride_ended", "Ситуация осталась без решения к концу рейса");
+        incident.status = "expired";
+        incident.dialogue = null;
+      }
+    }
+    state.active = null;
+    state.queue = [];
+  }
 
   if (state.t >= data.durationSec && !state.active && !state.queue.length) {
     state.finished = true;
@@ -352,6 +431,9 @@ function moveAlongPath(ra: RuntimeActor, dt: number) {
     }
     const dx = wp.x - ra.x,
       dy = wp.y - ra.y;
+    if (Math.abs(dx) > 0.001) {
+      ra.facing = dx > 0 ? "right" : "left";
+    }
     const dist = Math.hypot(dx, dy);
     if (dist <= budget) {
       ra.x = wp.x;
@@ -372,8 +454,28 @@ export function triggerEvent(state: SimState, data: ScenarioData, eventId: strin
   if (state.fired.includes(eventId)) return;
   const ev = data.events.find((e) => e.id === eventId);
   if (!ev) return;
+  if (ev.trigger.type === "condition") {
+    const flags = conditionFlags(ev.trigger.if, state);
+    const causes = flags.flatMap((flag) => {
+      const index = state.log.findLastIndex((l) => l.flagsSet?.[flag] !== undefined);
+      return index >= 0 ? [index] : [];
+    });
+    (state.eventCauses ??= {})[ev.id] = Array.from(new Set(causes));
+  }
   state.fired.push(eventId);
-  state.queue.push(eventId);
+  const incident = state.incidents[eventId];
+  incident.triggeredAt = state.t;
+  incident.status = "waiting";
+  if (concurrentGameplay(data)) {
+    const focused = state.active;
+    const focusedStatus = focused ? state.incidents[focused.eventId].status : undefined;
+    openNode(state, data, eventId, ev.startNode);
+    incident.status = "waiting";
+    state.active = focused;
+    if (focused && focusedStatus) state.incidents[focused.eventId].status = focusedStatus;
+  } else state.queue.push(eventId);
+  syncIncidentRisk(state, data, incident, false);
+  recordWorkload(state, data, incident, "appeared", ev.title);
   state.feed.push({ t: state.t, text: `Событие: ${ev.title}`, kind: "warn" });
 }
 
@@ -395,18 +497,245 @@ const patience = (state: SimState, data: ScenarioData, eventId: string) =>
 
 /** Открыть узел диалога: таймер узла масштабируется терпением класса вагона */
 export function openNode(state: SimState, data: ScenarioData, eventId: string, nodeId: string) {
-  const timer = findNode(data, eventId, nodeId)?.timerSec;
+  const node = findNode(data, eventId, nodeId);
+  if (!node) throw new Error(`Неизвестный узел ${eventId}/${nodeId}`);
+  if (!state.fired.includes(eventId)) state.fired.push(eventId);
+  if (state.active && state.active.eventId !== eventId && state.incidents[state.active.eventId].status === "active")
+    state.incidents[state.active.eventId].status = "waiting";
+  const timer = effectiveNodeKind(node, state) === "decision" ? node.timerSec : undefined;
   const limitSec = timer ? Math.round(timer * patience(state, data, eventId).timer * 10) / 10 : undefined;
   state.active = { eventId, nodeId, openedAt: state.t, wallOpenedAt: Date.now(), limitSec };
+  const incident = state.incidents[eventId];
+  if (incident) {
+    incident.triggeredAt ??= state.t;
+    incident.dialogue = state.active;
+    const terminalInformation = effectiveNodeKind(node, state) === "information" &&
+      (node.kind === "information" ? !node.next : visibleOptions(node, state).every((o) => !resolveNext(o, state)));
+    incident.status = terminalInformation ? "resolved" : "active";
+    if (terminalInformation) {
+      const risk = incident.riskEpisodes.at(-1);
+      if (risk) risk.endedAt = state.t;
+      recordWorkload(state, data, incident, "resolved", "Ситуация решена; доступна итоговая информация");
+    }
+  }
+}
+
+/** Переключение внимания не перезапускает ни одного срока. */
+export function selectIncident(state: SimState, data: ScenarioData, eventId: string): boolean {
+  const incident = state.incidents[eventId];
+  if (!concurrentGameplay(data) || state.finished || !incident?.dialogue ||
+      (incident.status !== "waiting" && incident.status !== "active")) return false;
+  if (state.active?.eventId === eventId) return true;
+  const fromEventId = state.active?.eventId;
+  if (state.active && state.incidents[state.active.eventId].status === "active") state.incidents[state.active.eventId].status = "waiting";
+  state.active = incident.dialogue;
+  incident.status = "active";
+  syncIncidentRisk(state, data, incident);
+  const risk = incident.riskEpisodes.at(-1);
+  if (risk) risk.noticedAt ??= state.t;
+  recordWorkload(state, data, incident, "selected", fromEventId ? "Переключились на ситуацию" : "Выбрали ситуацию", { fromEventId });
+  return true;
+}
+
+export function leaveIncident(state: SimState) {
+  if (state.active) {
+    const incident = state.incidents[state.active.eventId];
+    const risk = incident.riskEpisodes.at(-1);
+    if (risk) state.workload.push({ t: state.t, kind: "left", eventId: incident.eventId, nodeId: state.active.nodeId,
+      text: "Оставили ситуацию ждать", severity: risk.severity, urgency: risk.urgency,
+      responseWindowSec: risk.responseWindowSec, waitingSec: state.t - (incident.triggeredAt ?? state.t),
+      priority: priorityForRisk(risk, state.t), context: { ...incident.context } });
+  }
+  if (state.active && state.incidents[state.active.eventId].status === "active") state.incidents[state.active.eventId].status = "waiting";
+  state.active = null;
+}
+
+function finishIncident(state: SimState, status: "resolved" | "expired", data: ScenarioData) {
+  if (!state.active) return;
+  const incident = state.incidents[state.active.eventId];
+  if (incident) {
+    if (incident.status !== status) recordWorkload(state, data, incident, status, status === "resolved" ? "Ситуация решена" : "Срок решения истёк");
+    incident.status = status;
+    incident.dialogue = null;
+    const risk = incident.riskEpisodes.at(-1);
+    if (risk) risk.endedAt = state.t;
+  }
+  state.active = null;
+}
+
+/** Одинаковые по механике действия не создают содержательный выбор. */
+export function effectiveNodeKind(node: DialogueNode, state: ConditionState): "decision" | "information" {
+  if (node.kind === "information") return "information";
+  const actions = visibleOptions(node, state);
+  const signatures = new Set(actions.map((o) => JSON.stringify({
+    effects: o.effects, next: o.next, nextIf: o.nextIf, set: o.set, timeCostSec: o.timeCostSec, outcomes: o.outcomes,
+  })));
+  return actions.length >= 2 && signatures.size >= 2 ? "decision" : "information";
+}
+
+/** Информация/единственный доступный путь: переход и флаги, но ни баллов, ни log-ответа. */
+export function continueInformation(state: SimState, data: ScenarioData): boolean {
+  if (!state.active || state.finished) return false;
+  const { eventId, nodeId } = state.active;
+  const node = findNode(data, eventId, nodeId)!;
+  if (effectiveNodeKind(node, state) !== "information") return false;
+  const options = visibleOptions(node, state);
+  const option = node.kind !== "information" ? options[0] : undefined;
+  const flags = node.set ?? option?.set;
+  if (flags) Object.assign(state.flags, flags);
+  if (flags) Object.assign(state.incidents[eventId].context, flags);
+  const next = node.kind === "information" ? node.next : option ? resolveNext(option, state) : node.next;
+  if (next) openNode(state, data, eventId, next);
+  else finishIncident(state, "resolved", data);
+  return true;
+}
+
+function incidentPenalty(state: SimState, data: ScenarioData, incident: RuntimeIncident,
+  cause: NonNullable<LogEntry["cause"]>, text: string, fx?: { loyalty: number; safety: number }, set?: Record<string, FlagValue>) {
+  const ev = findEvent(data, incident.eventId)!;
+  // Автор задаёт реальные последствия; fallback различает тяжесть пропущенной ситуации.
+  syncIncidentRisk(state, data, incident);
+  const risk = incident.riskEpisodes.at(-1);
+  const urgency = risk?.urgency ?? ev.urgency;
+  const fallback = urgency === "critical" ? { loyalty: -4, safety: -18 }
+    : urgency === "urgent" ? { loyalty: -6, safety: -7 } : { loyalty: -3, safety: 0 };
+  const effects = applyEffects(state, data, ev.id, fx ?? fallback);
+  if (set) Object.assign(state.flags, set);
+  if (set) Object.assign(incident.context, set);
+  if (risk) risk.failed = true;
+  recordWorkload(state, data, incident, cause === "escalation" ? "escalated" : "expired", text, { effects });
+  state.log.push({ t: state.t, eventId: ev.id, category: ev.category,
+    nodeId: incident.dialogue?.nodeId ?? ev.startNode, optionId: null,
+    reactionMs: Math.round(Math.max(0, state.t - (incident.triggeredAt ?? state.t)) * 1000),
+    correct: false, effects, cause, feedback: text, flagsSet: set ? { ...set } : undefined,
+    causes: state.eventCauses?.[ev.id], limitSec: ev.responseWindowSec });
+  state.feed.push({ t: state.t, text: `${ev.title}: ${text}`, kind: "bad" });
+}
+
+function updateIncidents(state: SimState, data: ScenarioData) {
+  for (const ev of data.events) {
+    const incident = state.incidents[ev.id];
+    if (incident.status !== "waiting" && incident.status !== "active") continue;
+    syncIncidentRisk(state, data, incident);
+    const elapsed = state.t - (incident.triggeredAt ?? state.t);
+    const risk = incident.riskEpisodes.at(-1)!;
+    const hasResponseWindow = ev.responseWindowSec !== undefined || risk.key !== "base";
+    if (hasResponseWindow && !risk.responseExpired && risk.responseAt === undefined && state.t - risk.startedAt + 1e-7 >= risk.responseWindowSec) {
+      risk.responseExpired = true;
+      incident.responseExpired = true;
+      // При наличии эскалации штраф применяется ею, а ситуация остаётся доступна.
+      if (!ev.escalation) incidentPenalty(state, data, incident, "response_expired", "Пассажир ждёт ответа; обращение остаётся открытым");
+    }
+    if (!incident.escalated && ev.escalation && elapsed + 1e-7 >= ev.escalation.afterSec) {
+      incident.escalated = true;
+      const escalation = ev.escalation;
+      incidentPenalty(state, data, incident, "escalation", escalation.text ?? "Ситуация ухудшилась", escalation.effects, escalation.set);
+      if (escalation.nextEvent) {
+        risk.endedAt = state.t;
+        incident.status = "expired";
+        incident.dialogue = null;
+        if (state.active?.eventId === ev.id) state.active = null;
+        triggerEvent(state, data, escalation.nextEvent);
+        continue;
+      }
+      if (escalation.nextNode) {
+        // A background escalation must not steal the dialogue currently in focus.
+        const focused = state.active;
+        const focusedStatus = focused && state.incidents[focused.eventId].status;
+        openNode(state, data, ev.id, escalation.nextNode);
+        if (focused && focused.eventId !== ev.id) {
+          incident.status = "waiting";
+          state.active = focused;
+          if (focusedStatus) state.incidents[focused.eventId].status = focusedStatus;
+        }
+      }
+    }
+    const dialogue = incident.dialogue;
+    const node = dialogue && findNode(data, ev.id, dialogue.nodeId);
+    if (dialogue?.limitSec && node && effectiveNodeKind(node, state) === "decision" && state.t - dialogue.openedAt + 1e-7 >= dialogue.limitSec) {
+      const focusedId = state.active?.eventId;
+      state.active = dialogue;
+      timeoutDialogue(state, data);
+      if (focusedId !== ev.id) {
+        if (incident.status === "active") incident.status = "waiting";
+        state.active = focusedId ? state.incidents[focusedId].dialogue : null;
+      }
+    }
+  }
+}
+
+const urgencyWeight = (urgency: RiskEpisode["urgency"]) => urgency === "critical" ? 4 : urgency === "urgent" ? 2 : 1;
+
+function priorityForRisk(risk: RiskEpisode, now: number) {
+  const pressure = 1 + Math.min(2, Math.max(0, now - risk.startedAt) / risk.responseWindowSec);
+  return risk.severity * urgencyWeight(risk.urgency) * pressure;
+}
+
+/** Приоритет зависит от стадии/контекста и ожидания. Category не участвует. */
+export function incidentPriority(state: SimState, eventId: string): number {
+  const risk = state.incidents[eventId]?.riskEpisodes.at(-1);
+  return risk ? priorityForRisk(risk, state.t) : 0;
+}
+
+export function incidentObservation(state: SimState, data: ScenarioData, eventId: string): string {
+  const incident = state.incidents[eventId];
+  const ev = findEvent(data, eventId);
+  const risk = incident?.riskEpisodes.at(-1);
+  if (risk && risk.key !== "base") return risk.text;
+  if (incident?.escalated && ev?.escalation?.text) return ev.escalation.text;
+  return (incident?.dialogue && findNode(data, eventId, incident.dialogue.nodeId)?.text) || ev?.title || eventId;
+}
+
+function syncIncidentRisk(state: SimState, data: ScenarioData, incident: RuntimeIncident, announce = true) {
+  const ev = findEvent(data, incident.eventId)!;
+  const elapsed = state.t - (incident.triggeredAt ?? state.t);
+  const index = ev.priorityRules?.findIndex((rule) =>
+    (rule.afterSec === undefined || elapsed + 1e-7 >= rule.afterSec) && (!rule.if || evalCondition(rule.if, state))) ?? -1;
+  const rule = index >= 0 ? ev.priorityRules![index] : undefined;
+  const key = rule ? `rule:${index}` : "base";
+  const previous = incident.riskEpisodes.at(-1);
+  if (previous?.key === key) return;
+  if (previous) previous.endedAt = state.t;
+  const risk: RiskEpisode = { key, startedAt: state.t,
+    severity: rule?.severity ?? ev.severity ?? 1, urgency: rule?.urgency ?? ev.urgency ?? "routine",
+    responseWindowSec: rule?.responseWindowSec ?? ev.responseWindowSec ?? 30,
+    text: rule?.text ?? findNode(data, ev.id, incident.dialogue?.nodeId ?? ev.startNode)?.text ?? ev.title,
+    noticedAt: incident.status === "active" && state.active?.eventId === ev.id ? state.t : undefined };
+  incident.riskEpisodes.push(risk);
+  if (rule?.set) {
+    Object.assign(state.flags, rule.set);
+    Object.assign(incident.context, rule.set);
+  }
+  if (previous && announce) {
+    recordWorkload(state, data, incident, "risk_changed", risk.text);
+    state.feed.push({ t: state.t, text: `${ev.title}: ${risk.text}`, kind: "warn" });
+  }
+}
+
+function recordWorkload(state: SimState, data: ScenarioData, incident: RuntimeIncident,
+  kind: WorkloadEntry["kind"], text: string, extra: Partial<WorkloadEntry> = {}): WorkloadEntry | undefined {
+  if (!concurrentGameplay(data)) return;
+  const risk = incident.riskEpisodes.at(-1);
+  if (!risk) return;
+  const priority = priorityForRisk(risk, state.t);
+  const entry: WorkloadEntry = { t: state.t, kind, eventId: incident.eventId, nodeId: incident.dialogue?.nodeId,
+    text, severity: risk.severity, urgency: risk.urgency, responseWindowSec: risk.responseWindowSec,
+    waitingSec: Math.max(0, state.t - (incident.triggeredAt ?? state.t)), priority,
+    context: { ...incident.context }, competingEventIds: Object.values(state.incidents)
+      .filter((other) => other.eventId !== incident.eventId && (other.status === "active" || other.status === "waiting") &&
+        incidentPriority(state, other.eventId) > priority * 1.5).map((other) => other.eventId), ...extra };
+  state.workload.push(entry);
+  return entry;
 }
 
 /** Применить эффекты к шкалам. Потеря лояльности усиливается по классу вагона. Возвращает фактические эффекты. */
 function applyEffects(state: SimState, data: ScenarioData, eventId: string, fx: { loyalty: number; safety: number }) {
   const loyalty = fx.loyalty < 0 ? Math.round(fx.loyalty * patience(state, data, eventId).loyaltyLoss) : fx.loyalty;
   const applied = { loyalty, safety: fx.safety };
+  const before = { loyalty: state.loyalty, safety: state.safety };
   state.loyalty = clamp(state.loyalty + applied.loyalty);
   state.safety = clamp(state.safety + applied.safety);
-  return applied;
+  return { loyalty: state.loyalty - before.loyalty, safety: state.safety - before.safety };
 }
 
 export function findEvent(data: ScenarioData, id: string): GameEvent | undefined {
@@ -418,7 +747,7 @@ export function findNode(data: ScenarioData, eventId: string, nodeId: string): D
 
 // ───────────────────────────── Условия ─────────────────────────────
 
-type ConditionState = Pick<SimState, "flags" | "loyalty" | "safety">;
+type ConditionState = Pick<SimState, "flags" | "loyalty" | "safety"> & Partial<Pick<SimState, "resources">>;
 
 const inRange = (v: number, r: Range) => (r.lt === undefined || v < r.lt) && (r.gte === undefined || v >= r.gte);
 
@@ -433,6 +762,17 @@ export function evalCondition(cond: Condition, state: ConditionState): boolean {
   }
   if ("loyalty" in cond) return inRange(state.loyalty, cond.loyalty);
   if ("safety" in cond) return inRange(state.safety, cond.safety);
+  if ("resource" in cond) {
+    const resource = cond.resource;
+    if (resource.type === "availableSeats") return inRange(state.resources?.availableSeats[resource.carId] ?? 0, resource.range);
+    if (resource.type === "carType") return state.resources?.carTypes[resource.carId] === resource.eq;
+    if (resource.type === "capability") {
+      const value = state.resources?.capabilities[resource.carId]?.[resource.capability] ?? false;
+      return resource.eq === undefined ? value : value === resource.eq;
+    }
+    const value = state.resources?.serviceEntitlements[resource.entitlement] ?? false;
+    return resource.eq === undefined ? value : value === resource.eq;
+  }
   if ("all" in cond) return cond.all.every((c) => evalCondition(c, state));
   return cond.any.some((c) => evalCondition(c, state));
 }
@@ -445,6 +785,29 @@ export const visibleOptions = (node: DialogueNode, state: ConditionState) =>
 export function resolveNext(option: DialogueOption, state: ConditionState): string | null {
   const branch = option.nextIf?.find((b) => evalCondition(b.if, state));
   return branch ? branch.next : option.next;
+}
+
+function conditionFlags(condition: Condition, state: ConditionState): string[] {
+  if (!evalCondition(condition, state)) return [];
+  if ("flag" in condition) return [condition.flag];
+  if ("all" in condition) return condition.all.flatMap((c) => conditionFlags(c, state));
+  if ("any" in condition) return condition.any.flatMap((c) => conditionFlags(c, state));
+  return [];
+}
+
+export function resolveOutcome(option: DialogueOption, state: ConditionState) {
+  return option.outcomes?.find((o) => evalCondition(o.if, state)) ?? {
+    correct: !!option.correct, effects: option.effects, feedback: option.feedback,
+  };
+}
+
+function decisionContext(ev: GameEvent, state: SimState) {
+  if (!ev.context) return undefined;
+  return {
+    known: ev.context.filter((c) => Object.hasOwn(state.flags, c.flag)).map((c) =>
+      `${c.label}: ${state.flags[c.flag] === true ? "да" : state.flags[c.flag] === false ? "нет" : state.flags[c.flag]}`),
+    missing: ev.context.filter((c) => !Object.hasOwn(state.flags, c.flag)).map((c) => c.label),
+  };
 }
 
 // ───────────────────────────── Ролевая модель ─────────────────────────────
@@ -477,8 +840,39 @@ export function roleModelScore(log: LogEntry[]): number {
 }
 
 export function chooseOption(state: SimState, data: ScenarioData, option: DialogueOption) {
-  if (!state.active) return;
+  if (!state.active || state.finished) return;
+  const currentNode = findNode(data, state.active.eventId, state.active.nodeId)!;
+  if (effectiveNodeKind(currentNode, state) !== "decision") return;
   const ev = findEvent(data, state.active.eventId)!;
+  const incident = state.incidents[ev.id];
+  syncIncidentRisk(state, data, incident);
+  const risk = incident.riskEpisodes.at(-1)!;
+  risk.noticedAt ??= state.t;
+  risk.responseAt ??= state.t;
+  const workloadAction = recordWorkload(state, data, incident, "action", option.text, { optionId: option.id });
+  incident.respondedAt ??= state.t;
+  const context = decisionContext(ev, state);
+  const outcome = resolveOutcome(option, state);
+  let remaining: number | undefined;
+  if (option.timeCostSec && concurrentGameplay(data)) {
+    const dialogue = state.active;
+    if (dialogue.limitSec) remaining = dialogue.limitSec - (state.t - dialogue.openedAt) - option.timeCostSec;
+    const target = Math.min(data.durationSec, state.t + option.timeCostSec);
+    while (!state.finished && state.active === dialogue && state.t + 0.000001 < target) {
+      tick(state, Math.min(0.05, target - state.t), data, { pauseWhileDialogue: false });
+    }
+    if (state.active !== dialogue) return; // действие прервано просрочкой/эскалацией
+  } else if (option.timeCostSec) {
+    const limit = state.active.limitSec ?? DEFAULT_REACTION_LIMIT_SEC;
+    remaining = limit - (state.t - state.active.openedAt) - option.timeCostSec;
+    state.active.limitSec = limit;
+    state.active.openedAt -= option.timeCostSec;
+    if (remaining <= 0) {
+      timeoutDialogue(state, data);
+      state.log[state.log.length - 1].timeCostSec = option.timeCostSec;
+      return;
+    }
+  }
 
   // ролевая модель: штраф за нарушение, бонус за полную цепочку в событии
   const eventLog = state.log.filter((l) => l.eventId === ev.id);
@@ -491,8 +885,8 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
     ROLE_STEPS.every((s) => s === "assure" || prevSteps.includes(s));
   const extra = violation ? ROLE_MODEL.violationPenalty : fullChain ? ROLE_MODEL.fullChainBonus : null;
   const effects = applyEffects(state, data, ev.id, {
-    loyalty: option.effects.loyalty + (extra?.loyalty ?? 0),
-    safety: option.effects.safety + (extra?.safety ?? 0),
+    loyalty: outcome.effects.loyalty + (extra?.loyalty ?? 0),
+    safety: outcome.effects.safety + (extra?.safety ?? 0),
   });
 
   state.log.push({
@@ -501,18 +895,31 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
     category: ev.category,
     nodeId: state.active.nodeId,
     optionId: option.id,
-    reactionMs: Date.now() - state.active.wallOpenedAt,
-    correct: !!option.correct,
+    reactionMs: concurrentGameplay(data) ? Math.round(Math.max(0, state.t - state.active.openedAt) * 1000) : Date.now() - state.active.wallOpenedAt,
+    correct: outcome.correct && (!option.outcomes || !violation),
+    context,
+    feedback: outcome.feedback,
+    flagsSet: option.set ? { ...option.set } : undefined,
+    causes: state.eventCauses?.[ev.id],
+    timeCostSec: option.timeCostSec,
     effects,
     limitSec: state.active.limitSec,
     ...(option.step && { step: option.step }),
     ...(violation && { violation }),
   });
   if (option.set) Object.assign(state.flags, option.set);
+  if (option.set) Object.assign(incident.context, option.set);
+  if (workloadAction) {
+    workloadAction.completedAt = state.t;
+    workloadAction.correct = state.log.at(-1)!.correct;
+    workloadAction.effects = effects;
+    workloadAction.context = { ...incident.context };
+  }
+  syncIncidentRisk(state, data, incident);
   state.feed.push({
     t: state.t,
-    text: `${ev.title}: ${option.correct ? "верное решение" : "спорное решение"} (лояльность ${fmt(effects.loyalty)}, безопасность ${fmt(effects.safety)})`,
-    kind: option.correct ? "good" : "bad",
+    text: `${ev.title}: ${state.log[state.log.length - 1].correct ? "обоснованное решение" : "спорное решение"} (лояльность ${fmt(effects.loyalty)}, безопасность ${fmt(effects.safety)})`,
+    kind: state.log[state.log.length - 1].correct ? "good" : "bad",
   });
   if (violation)
     state.feed.push({ t: state.t, text: `Ролевая модель: ${ROLE_VIOLATION_TEXT[violation]}`, kind: "bad" });
@@ -521,8 +928,11 @@ export function chooseOption(state: SimState, data: ScenarioData, option: Dialog
   const next = resolveNext(option, state);
   if (next) {
     openNode(state, data, ev.id, next);
+    if (remaining !== undefined && state.active) {
+      state.active.limitSec = Math.min(state.active.limitSec ?? remaining, remaining);
+    }
   } else {
-    state.active = null;
+    finishIncident(state, "resolved", data);
   }
 }
 
@@ -534,7 +944,12 @@ export function timeoutDialogue(state: SimState, data: ScenarioData) {
   if (!state.active) return;
   const ev = findEvent(data, state.active.eventId)!;
   const node = findNode(data, ev.id, state.active.nodeId);
+  if (node && effectiveNodeKind(node, state) === "information") return;
   const branch = node?.onTimeout;
+  const incident = state.incidents[ev.id];
+  syncIncidentRisk(state, data, incident);
+  const risk = incident.riskEpisodes.at(-1);
+  if (risk) risk.failed = true;
   const effects = applyEffects(state, data, ev.id, branch?.effects ?? TIMEOUT_PENALTY);
   state.log.push({
     t: state.t,
@@ -542,15 +957,24 @@ export function timeoutDialogue(state: SimState, data: ScenarioData) {
     category: ev.category,
     nodeId: state.active.nodeId,
     optionId: null,
-    reactionMs: Date.now() - state.active.wallOpenedAt,
+    reactionMs: concurrentGameplay(data) ? Math.round(Math.max(0, state.t - state.active.openedAt) * 1000) : Date.now() - state.active.wallOpenedAt,
     correct: false,
+    context: decisionContext(ev, state),
+    flagsSet: branch?.set ? { ...branch.set } : undefined,
+    causes: state.eventCauses?.[ev.id],
     effects,
     limitSec: state.active.limitSec,
+    feedback: branch?.text,
   });
   if (branch?.set) Object.assign(state.flags, branch.set);
+  if (branch?.set) Object.assign(incident.context, branch.set);
+  recordWorkload(state, data, incident, "expired", branch?.text ?? "Время на решение истекло", { effects });
   state.feed.push({ t: state.t, text: `${ev.title}: ${branch?.text ?? "время на решение истекло"}`, kind: "bad" });
   if (branch?.next) openNode(state, data, ev.id, branch.next);
-  else state.active = null;
+  else {
+    incident.status = "expired"; // Запись с эффектами уже добавлена выше.
+    finishIncident(state, "expired", data);
+  }
 }
 
 /**
@@ -573,12 +997,44 @@ export interface SimResult {
   accuracy: number; // доля верных решений 0..1
   avgReactionMs: number;
   timeouts: number;
-  competencies: { communication: number; safety: number; speed: number; protocol: number; roleModel: number };
+  competencies: { communication: number; safety: number; speed: number; protocol: number; roleModel: number; prioritization: number; situational_awareness: number };
   recommendations: string[];
 }
 
+export function prioritizationScore(state: SimState, data: ScenarioData): number {
+  return workloadScores(state, data).prioritization;
+}
+
+/** Разумные порядки дают одинаковый результат: оцениваем реальные задержки и ухудшения, не ранг клика. */
+export function workloadScores(state: SimState, data: ScenarioData) {
+  let responseWeight = 0, responseCredit = 0, noticeWeight = 0, noticeCredit = 0;
+  for (const ev of data.events) {
+    const incident = state.incidents[ev.id];
+    if (!concurrentGameplay(data) || incident?.triggeredAt === undefined ||
+      (ev.severity === undefined && !ev.responseWindowSec && !ev.priorityRules)) continue;
+    for (const risk of incident.riskEpisodes) {
+      const weight = risk.severity * urgencyWeight(risk.urgency);
+      if (!weight) continue;
+      const end = risk.endedAt ?? state.t;
+      const noticeWindow = Math.min(risk.responseWindowSec, Math.max(5, risk.responseWindowSec / 2));
+      const credit = (time: number | undefined, window: number) => time === undefined ? 0
+        : Math.max(0, 1 - Math.max(0, time - risk.startedAt - window) / window);
+      if (risk.noticedAt !== undefined || end + 1e-7 >= risk.startedAt + noticeWindow) {
+        noticeWeight += weight;
+        noticeCredit += weight * credit(risk.noticedAt, noticeWindow);
+      }
+      if (risk.responseAt !== undefined || risk.failed || end + 1e-7 >= risk.startedAt + risk.responseWindowSec) {
+        responseWeight += weight;
+        responseCredit += weight * (risk.failed ? 0 : credit(risk.responseAt, risk.responseWindowSec));
+      }
+    }
+  }
+  return { prioritization: responseWeight ? Math.round(responseCredit / responseWeight * 100) : 100,
+    situational_awareness: noticeWeight ? Math.round(noticeCredit / noticeWeight * 100) : 100 };
+}
+
 export function computeResult(state: SimState, data: ScenarioData): SimResult {
-  const log = state.log;
+  const log = state.log.filter((entry) => !entry.cause);
   const n = log.length || 1;
   const correct = log.filter((l) => l.correct).length;
   const accuracy = log.length ? correct / n : 1;
@@ -603,6 +1059,8 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
     speed,
     protocol: Math.round(accuracy * 100),
     roleModel: roleModelScore(log),
+    prioritization: prioritizationScore(state, data),
+    situational_awareness: workloadScores(state, data).situational_awareness,
   };
 
   const score = clamp(
@@ -626,6 +1084,8 @@ export function computeResult(state: SimState, data: ScenarioData): SimResult {
       `Соблюдайте ролевую модель общения: ${ROLE_STEPS.map((s) => ROLE_STEP_LABEL[s]).join(" → ")}. Не переходите к правилу, не признав ситуацию.`,
     );
   if (timeouts > 0) recommendations.push("Есть пропущенные решения — не оставляйте ситуацию без ответа.");
+  if (competencies.prioritization < 70) recommendations.push("Отработайте выбор очередности помощи: учитывайте признаки ухудшения и время ожидания каждой ситуации.");
+  if (competencies.situational_awareness < 70) recommendations.push("Проверяйте новые обращения и изменения признаков: наблюдение за одной ситуацией не заменяет обзор остальных.");
   if (!recommendations.length) recommendations.push("Отличный результат. Попробуйте более сложный сценарий.");
 
   return {

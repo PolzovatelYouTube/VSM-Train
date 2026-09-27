@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chooseOption, createSim, findNode, openNode, tick, computeResult, visibleOptions, timeoutDialogue } from "../shared/engine";
+import { chooseOption, createSim, findNode, openNode, tick, computeResult, visibleOptions, timeoutDialogue, continueInformation } from "../shared/engine";
 import { scenarioDataSchema } from "../shared/scenario";
 import { accessibilityScenario } from "../shared/scenarios/accessibility";
 import { buildDebrief } from "../shared/analytics";
@@ -20,7 +20,7 @@ describe("сценарий «Маломобильные пассажиры и б
       const ids = new Set(ev.nodes.map((n) => n.id));
       expect(ids.has(ev.startNode)).toBe(true);
       for (const n of ev.nodes) {
-        expect(n.options.some((o) => o.correct), `${ev.id}/${n.id}`).toBe(true);
+        expect(n.kind === "information" || n.options.some((o) => o.correct), `${ev.id}/${n.id}`).toBe(true);
         const targets = [n.onTimeout?.next, ...n.options.flatMap((o) => [o.next, ...(o.nextIf ?? []).map((b) => b.next)])];
         for (const t of targets) if (t) expect(ids.has(t), `${ev.id}/${n.id} → ${t}`).toBe(true);
       }
@@ -28,13 +28,16 @@ describe("сценарий «Маломобильные пассажиры и б
   });
 
   it.each([
-    ["ev_wheelchair", "w1", ["w1a", "w2a", "w3a", "w4a"]],
-    ["ev_guide_dog", "g1", ["g1a", "g2a", "g3a", "g4a"]],
-    ["ev_item", "i1", ["i1a", "i2a", "i3a", "i4a"]],
+    ["ev_wheelchair", "w1", ["w1a", "w2a", "w3a"]],
+    ["ev_guide_dog", "g1", ["g1a", "g2a", "g3a"]],
+    ["ev_item", "i1", ["i1a", "i2a", "i3a"]],
   ])("эталонная цепочка %s — без нарушений ролевой модели", (eventId, start, chain) => {
     const s = createSim(data);
     openNode(s, data, eventId, start);
     for (const id of chain) pick(s, id);
+    const before = computeResult(s, data);
+    expect(continueInformation(s, data)).toBe(true);
+    expect(computeResult(s, data)).toEqual(before);
     expect(s.active).toBeNull();
     expect(s.log.every((l) => l.correct && !l.violation)).toBe(true);
     expect(computeResult(s, data).competencies.roleModel).toBe(100);

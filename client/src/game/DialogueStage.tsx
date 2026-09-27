@@ -23,6 +23,10 @@ export function DialogueStage({
   speakerInScene,
   eventCar,
   onChoose,
+  information,
+  onContinue,
+  concurrent,
+  observation,
 }: {
   event: GameEvent;
   node: DialogueNode;
@@ -34,6 +38,10 @@ export function DialogueStage({
   speakerInScene: boolean;
   eventCar: CarType | null;
   onChoose: (o: DialogueOption) => void;
+  information: boolean;
+  onContinue: () => void;
+  concurrent: boolean;
+  observation?: string;
 }) {
   const firstRef = useRef<HTMLButtonElement>(null);
 
@@ -43,6 +51,10 @@ export function DialogueStage({
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       const n = Number(e.key);
+      if (information) {
+        if (e.key === "1") { e.preventDefault(); onContinue(); }
+        return;
+      }
       if (n >= 1 && n <= Math.min(4, options.length)) {
         e.preventDefault();
         onChoose(options[n - 1]);
@@ -50,7 +62,7 @@ export function DialogueStage({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, locked, onChoose]);
+  }, [options, locked, onChoose, information, onContinue]);
 
   const share = timerLeft !== null && limitSec ? Math.max(0, timerLeft / limitSec) : null;
   const urgent = share !== null && share <= 0.3;
@@ -96,11 +108,15 @@ export function DialogueStage({
             {!speakerInScene && <span className="font-normal">· по рации</span>}
           </div>
           <p className="text-sm leading-relaxed sm:text-[15px]" aria-live="polite" data-testid="text-dialogue">
-            {node.text}
+            {observation ?? node.text}
           </p>
         </div>
         <div className="grid gap-2" role="group" aria-label="Варианты ответа (клавиши 1–4)">
-          {options.map((o, i) => (
+          {information ? (
+            <button disabled={locked} onClick={onContinue} className="min-h-11 rounded-lg border px-3 py-2.5 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="button-continue-information">
+              Продолжить
+            </button>
+          ) : options.map((o, i) => (
             <button
               key={o.id}
               ref={i === 0 ? firstRef : undefined}
@@ -111,17 +127,18 @@ export function DialogueStage({
               className={cn(
                 "g-opt min-h-11 w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                 "hover:bg-accent hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed",
-                training && o.correct && "border-[hsl(var(--safety))]/60 bg-[hsl(var(--safety))]/5",
+                training && o.correct && !o.outcomes && !event.context && "border-[hsl(var(--safety))]/60 bg-[hsl(var(--safety))]/5",
               )}
             >
               <span className="mr-2 inline-grid size-5 place-items-center rounded bg-muted font-mono text-xs text-muted-foreground">{i + 1}</span>
               {o.text}
+              {o.timeCostSec && <span className="ml-2 text-xs text-muted-foreground">· {o.timeCostSec} с</span>}
               {training && o.step && (
                 <Badge variant="outline" className="ml-2 px-1.5 align-middle text-[10px]">
                   {ROLE_STEP_LABEL[o.step]}
                 </Badge>
               )}
-              {training && o.hint && o.correct && (
+              {training && o.hint && (o.correct || o.outcomes) && (
                 <span className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
                   <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-[hsl(var(--loyalty))]" /> {o.hint}
                 </span>
@@ -129,7 +146,8 @@ export function DialogueStage({
             </button>
           ))}
         </div>
-        {training && <p className="text-xs text-muted-foreground">Тренировка: рейс на паузе, верный вариант подсвечен. Клавиши 1–{Math.min(4, options.length)}.</p>}
+        {information ? <p className="text-xs text-muted-foreground">Информация · продолжение не оценивается.</p>
+          : training && <p className="text-xs text-muted-foreground">{concurrent ? "Остальные ситуации продолжают развиваться." : "Тренировка: рейс на паузе."} {event.context ? "Оценка зависит от контекста; действия расходуют время." : "Верный вариант подсвечен."} Клавиши 1–{Math.min(4, options.length)}.</p>}
       </div>
     </div>
   );

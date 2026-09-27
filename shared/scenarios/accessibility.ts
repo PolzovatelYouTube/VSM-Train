@@ -13,6 +13,9 @@ export function accessibilityScenario(): ScenarioData {
   const car2 = buildCar(2, "comfort", 8);
   const car3 = buildCar(3, "bistro", 6);
   const car4 = buildCar(4, "standard", 10);
+  car2.availableSeats = 1;
+  car2.capabilities = { wheelchairStorage: true, writtenCommunication: true, visualInformation: true };
+  car4.capabilities = { accessibleToilet: true };
 
   // Пассажир в кресле-коляске: помощь при размещении с вещами (п. 8.7), место для сложенного кресла (п. 6.3),
   // питание на место (п. 8.8), информация — от самого пассажира (п. 8.9)
@@ -22,6 +25,7 @@ export function accessibilityScenario(): ScenarioData {
     category: "request",
     actorId: "a_wheelchair",
     trigger: { type: "actor" },
+    stage: "boarding",
     startNode: "w1",
     nodes: [
       {
@@ -114,19 +118,11 @@ export function accessibilityScenario(): ScenarioData {
       },
       {
         id: "w4",
+        kind: "information",
         speaker: "Пассажир Громов",
-        text: "Отлично, так гораздо спокойнее.",
-        options: [
-          {
-            id: "w4a",
-            text: "«Я рядом, в служебном отделении. Нужна помощь — нажмите кнопку вызова, подойду сразу»",
-            next: null,
-            effects: { loyalty: 10, safety: 5 },
-            correct: true,
-            step: "assure",
-            feedback: "Спокойная, доброжелательная обстановка и понятный способ позвать на помощь (п. 8.9).",
-          },
-        ],
+        text: "Разговор завершён. Пассажиру сообщено, где находится проводник и как вызвать помощь: кнопкой вызова у места.",
+        next: null,
+        options: [],
       },
       {
         id: "w_bad",
@@ -162,6 +158,7 @@ export function accessibilityScenario(): ScenarioData {
     category: "conflict",
     actorId: "a_neighbour_dog",
     trigger: { type: "actor" },
+    stage: "onboard",
     startNode: "g1",
     nodes: [
       {
@@ -255,18 +252,11 @@ export function accessibilityScenario(): ScenarioData {
       },
       {
         id: "g4",
+        kind: "information",
         speaker: "Пассажир Фомин",
-        text: "Ладно, у окна даже лучше.",
-        options: [
-          {
-            id: "g4a",
-            text: "«Спасибо за понимание. Если что-то понадобится — я рядом»",
-            next: null,
-            effects: { loyalty: 10, safety: 0 },
-            correct: true,
-            step: "assure",
-          },
-        ],
+        text: "Разговор завершён. Пассажирам сообщено, как обратиться к проводнику за дальнейшей помощью.",
+        next: null,
+        options: [],
       },
       {
         id: "g_bad",
@@ -294,6 +284,136 @@ export function accessibilityScenario(): ScenarioData {
     ],
   };
 
+  // Нарушение слуха: канал общения выбирают по потребности пассажира, а не по роли.
+  const evHearing: GameEvent = {
+    id: "ev_hearing",
+    title: "Уточнение по письменному сообщению",
+    category: "request",
+    actorId: "a_hearing",
+    trigger: { type: "time", atSec: 48 },
+    stage: "onboard",
+    startNode: "h1",
+    context: [{ flag: "hearing_channel_agreed", label: "Предпочтительный канал общения уточнён" }],
+    nodes: [
+      {
+        id: "h1",
+        speaker: "Пассажирка Андреева",
+        text: "Я не расслышала объявление в вагоне. Подскажите, когда следующая остановка?",
+        timerSec: 15,
+        options: [
+          {
+            id: "h1a",
+            text: "Уточнить, удобнее ли показать информацию на экране или записать её",
+            next: "h2",
+            effects: { loyalty: 1, safety: 0 },
+            correct: true,
+            step: "acknowledge",
+            timeCostSec: 3,
+            set: { hearing_channel_agreed: true },
+            feedback: "Сначала уточнён удобный способ общения; вопрос занимает время, но не заставляет пассажира подстраиваться под один канал.",
+          },
+          {
+            id: "h1b",
+            text: "Повторить объявление громче из прохода",
+            next: null,
+            effects: { loyalty: -5, safety: 0 },
+            feedback: "Громкость не заменяет доступный канал. Потребность в письменной или визуальной информации не была учтена.",
+          },
+        ],
+      },
+      {
+        id: "h2",
+        speaker: "Пассажирка Андреева",
+        text: "Пожалуйста, лучше покажите или напишите — так я точно не перепутаю время.",
+        timerSec: 12,
+        options: [
+          {
+            id: "h2a",
+            text: "Показать информацию на экране и записать время следующей остановки",
+            next: null,
+            if: { all: [{ flag: "hearing_channel_agreed" }, { resource: { type: "capability", carId: car2.id, capability: "writtenCommunication" } }, { resource: { type: "capability", carId: car2.id, capability: "visualInformation" } }, { resource: { type: "serviceEntitlement", entitlement: "writtenCommunication" } }] },
+            effects: { loyalty: 5, safety: 0 },
+            correct: true,
+            step: "solution",
+            feedback: "В этом составе доступны письменный и визуальный каналы; информация передана в согласованном формате.",
+          },
+          {
+            id: "h2b",
+            text: "Сказать, что можно узнать время только по громкому объявлению",
+            next: null,
+            effects: { loyalty: -6, safety: 0 },
+            feedback: "Доступный в составе канал не использован, хотя пассажирка прямо обозначила удобный формат.",
+          },
+        ],
+      },
+    ],
+  };
+
+  // Нарушение зрения: устное описание и ориентация — не та же помощь, что письменный канал.
+  const evVision: GameEvent = {
+    id: "ev_vision",
+    title: "Ориентация в вагоне",
+    category: "request",
+    actorId: "a_vision",
+    trigger: { type: "time", atSec: 62 },
+    stage: "onboard",
+    startNode: "v1",
+    context: [{ flag: "orientation_preference", label: "Формат ориентации уточнён" }],
+    nodes: [
+      {
+        id: "v1",
+        speaker: "Пассажир Серов",
+        text: "Я не вижу табличек. Подскажите, как пройти к санузлу?",
+        timerSec: 15,
+        options: [
+          {
+            id: "v1a",
+            text: "Спросить, удобнее ли устное описание маршрута или сопровождение до ориентира",
+            next: "v2",
+            effects: { loyalty: 1, safety: 0 },
+            correct: true,
+            step: "acknowledge",
+            timeCostSec: 3,
+            set: { orientation_preference: true },
+            feedback: "Пассажир сам выбирает подходящий формат ориентации; зрение не означает, что сопровождение нужно без спроса.",
+          },
+          {
+            id: "v1b",
+            text: "Молча указать рукой в сторону тамбура",
+            next: null,
+            effects: { loyalty: -6, safety: -2 },
+            feedback: "Жест не даёт ориентиров, которые пассажир может использовать; помощь фактически не оказана.",
+          },
+        ],
+      },
+      {
+        id: "v2",
+        speaker: "Пассажир Серов",
+        text: "Опишите, пожалуйста: сколько рядов до двери и где будет поворот?",
+        timerSec: 12,
+        options: [
+          {
+            id: "v2a",
+            text: "Устно описать маршрут по рядам и предложить проводить до ориентира",
+            next: null,
+            if: { all: [{ flag: "orientation_preference" }, { resource: { type: "serviceEntitlement", entitlement: "verbalOrientation" } }] },
+            effects: { loyalty: 5, safety: 2 },
+            correct: true,
+            step: "solution",
+            feedback: "Переданы словесные ориентиры и предложена дальнейшая помощь; это отдельный канал, не равный письменному сообщению.",
+          },
+          {
+            id: "v2b",
+            text: "Попросить посмотреть на таблички у двери",
+            next: null,
+            effects: { loyalty: -7, safety: -2 },
+            feedback: "Ответ игнорирует сообщённую потребность и не даёт безопасной ориентации.",
+          },
+        ],
+      },
+    ],
+  };
+
   // №41 — пассажир сообщает о бесхозной вещи: не трогать, сообщить начальнику поезда и ПТБ по радиосвязи
   const evItem: GameEvent = {
     id: "ev_item",
@@ -301,6 +421,7 @@ export function accessibilityScenario(): ScenarioData {
     category: "technical",
     actorId: "a_reporter",
     trigger: { type: "time", atSec: 75 },
+    stage: "onboard",
     startNode: "i1",
     nodes: [
       {
@@ -388,18 +509,11 @@ export function accessibilityScenario(): ScenarioData {
       },
       {
         id: "i4",
+        kind: "information",
         speaker: "Пассажирка Зайцева",
-        text: "А нам что делать?",
-        options: [
-          {
-            id: "i4a",
-            text: "«Пожалуйста, сохраняйте спокойствие и следуйте рекомендациям персонала поезда. Начальник поезда уже идёт»",
-            next: null,
-            effects: { loyalty: 10, safety: 5 },
-            correct: true,
-            step: "assure",
-          },
-        ],
+        text: "Начальник поезда идёт. Пассажирам передано: сохранять спокойствие и следовать рекомендациям персонала поезда.",
+        next: null,
+        options: [],
       },
       {
         id: "i_bad",
@@ -435,6 +549,7 @@ export function accessibilityScenario(): ScenarioData {
     category: "technical",
     actorId: null,
     trigger: { type: "condition", if: { flag: "item_touched" } },
+    stage: "complaint",
     startNode: "t1",
     nodes: [
       {
@@ -477,6 +592,7 @@ export function accessibilityScenario(): ScenarioData {
       id: "a_wheelchair",
       name: "Громов",
       role: "passenger",
+      accessibilityNeeds: ["wheelchair", "mobility"],
       ticket: { carId: car2.id, seat: "2A" },
       spawn: { carId: car2.id, x: 1, y: 2 },
       mood: 70,
@@ -492,6 +608,7 @@ export function accessibilityScenario(): ScenarioData {
       id: "a_guide_dog_owner",
       name: "Лебедева",
       role: "passenger",
+      accessibilityNeeds: ["vision"],
       ticket: { carId: car2.id, seat: "5C" },
       spawn: { carId: car2.id, x: 6, y: 3 },
       mood: 80,
@@ -514,6 +631,26 @@ export function accessibilityScenario(): ScenarioData {
       ],
     },
     {
+      id: "a_hearing",
+      name: "Андреева",
+      role: "passenger",
+      accessibilityNeeds: ["hearing"],
+      ticket: { carId: car2.id, seat: "6A" },
+      spawn: { carId: car2.id, x: 7, y: 0 },
+      mood: 75,
+      steps: [{ type: "sit" }],
+    },
+    {
+      id: "a_vision",
+      name: "Серов",
+      role: "passenger",
+      accessibilityNeeds: ["vision"],
+      ticket: { carId: car2.id, seat: "7C" },
+      spawn: { carId: car2.id, x: 8, y: 3 },
+      mood: 75,
+      steps: [{ type: "sit" }],
+    },
+    {
       id: "a_reporter",
       name: "Зайцева",
       role: "passenger",
@@ -526,10 +663,17 @@ export function accessibilityScenario(): ScenarioData {
 
   return {
     version: 1,
+    gameplay: "sequential",
     train: { name: "ВСМ «Сапсан-2» №705", cars: [car1, car2, car3, car4] },
     actors,
-    events: [evWheelchair, evGuideDog, evItem, evPtb],
+    events: [evWheelchair, evGuideDog, evHearing, evVision, evItem, evPtb],
     durationSec: 150,
     initial: { loyalty: 70, safety: 80 },
+    serviceEntitlements: {
+      mealDelivery: true,
+      mobilityAssistance: true,
+      writtenCommunication: true,
+      verbalOrientation: true,
+    },
   };
 }
