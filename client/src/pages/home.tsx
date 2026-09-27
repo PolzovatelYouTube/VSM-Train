@@ -198,6 +198,11 @@ export default function Home() {
                     </Link>
                   </Button>
                 </div>
+                {user?.role === "supervisor" && (
+                    <Button asChild variant="outline">
+                      <Link href={`/editor/${s.id}`}>Редактировать</Link>
+                    </Button>
+                  )}
               </CardContent>
             </Card>
           ))}
