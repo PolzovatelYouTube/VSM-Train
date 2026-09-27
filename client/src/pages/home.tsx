@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useScenarios, useLeaderboard } from "@/lib/api";
 import { useApp } from "@/lib/player";
 import { HOME_HERO_TRAIN_ASSET } from "@/game/assets";
+import mainPageHero from "../../../train_UI/mainpage.png";
 
 function AccentBlocks() {
   return (
@@ -46,9 +47,9 @@ function AccentBlocks() {
 
       </div>
       <div className="rzd-sign-card rzd-sign-card--dark">
-        <span className="text-xs font-bold uppercase opacity-70">рейс</span>
-        <strong className="text-3xl leading-none">ВСМ</strong>
-        <span className="text-sm opacity-80">симуляция салона</span>
+        <span className="text-xs font-bold uppercase opacity-70"></span>
+        <strong className="text-3xl leading-none">Реальные условия работы в цифровой среде</strong>
+        <span className="text-sm opacity-80">чтобы вы были готовы ко всему ещё до первого рейса</span>
       </div>
     </section>
   );
@@ -123,7 +124,7 @@ function LeaderboardPreview({ board, player }: { board: { name: string; activePo
         <div>
           <span className="rzd-kicker">табло практики</span>
           <h2 id="leaderboard-preview-title" className="mt-1 flex items-center gap-2 text-xl font-bold">
-            <Trophy className="size-5 text-[hsl(var(--danger))]" /> Лидеры рейсов
+            <Trophy className="size-5 text-[hsl(var(--danger))]" /> Лучшие проводники ВСМ
           </h2>
         </div>
         <Button variant="outline" size="sm" asChild>
@@ -159,6 +160,9 @@ export default function Home() {
   return (
     <Shell>
       <header className="rzd-hero mb-8 overflow-hidden">
+        <div className="rzd-hero__photo" aria-hidden="true">
+          <img src={mainPageHero} alt="" />
+        </div>
         <div className="relative z-10 max-w-2xl">
           <span className="rzd-kicker">ВСМ-400</span>
           <h1 className="mt-4 text-4xl font-black leading-[0.95] tracking-tight sm:text-6xl">
