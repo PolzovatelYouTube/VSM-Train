@@ -51,6 +51,14 @@ describe("сценарий «Маломобильные пассажиры и б
     expect(buildDebrief(data, s.log)[0].why).toContain("кресло перекрыло проход");
   });
 
+  it("кресло-коляска: заранее согласованная помощь фиксирует приоритет обслуживания", () => {
+    const s = createSim(data);
+    openNode(s, data, "ev_wheelchair", "w1");
+    expect(findNode(data, "ev_wheelchair", "w1")?.text).toContain("контакт-центр");
+    pick(s, "w1a");
+    expect(s.flags.boarding_priority_given).toBe(true);
+  });
+
   it("собака-проводник: требовать переноску — ошибка с пояснением про п. 4.5", () => {
     const s = createSim(data);
     openNode(s, data, "ev_guide_dog", "g1");
@@ -61,12 +69,32 @@ describe("сценарий «Маломобильные пассажиры и б
     expect(item.violation).toMatch(/не признав/);
   });
 
-  it("№41: если вещь трогали, срабатывает событие «Вопросы ПТБ»", () => {
+  it("собака-проводник: документы объясняют исключение, а проход остаётся свободным", () => {
     const s = createSim(data);
+    openNode(s, data, "ev_guide_dog", "g1");
+    pick(s, "g1a");
+    expect(findNode(data, "ev_guide_dog", "g2")?.options.find((option) => option.id === "g2a")?.text).toContain("документ");
+    pick(s, "g2a");
+    pick(s, "g3a");
+    expect(s.flags.dog_passage_clear).toBe(true);
+  });
+
+  it("ориентация и слух используют сопровождение и электронный визуальный канал", () => {
+    expect(findNode(data, "ev_vision", "v2")?.options.find((option) => option.id === "v2a")?.text).toContain("сопровождение под руку");
+    expect(findNode(data, "ev_hearing", "h2")?.options.find((option) => option.id === "h2a")?.text).toMatch(/дисплее|приложении/);
+  });
+
+  it("бесхозная вещь: разбор после касания открывается только на станции", () => {
+    const s = createSim(data);
+    expect(data.events.find((event) => event.id === "ev_item")?.category).toBe("security");
     openNode(s, data, "ev_item", "i1");
     pick(s, "i1b");
     expect(s.flags.item_touched).toBe(true);
     s.active = null;
+    tick(s, 0.1, data, {});
+    expect(s.fired).not.toContain("ev_ptb");
+    openNode(s, data, "ev_station_arrival", "station_arrival");
+    expect(continueInformation(s, data)).toBe(true);
     tick(s, 0.1, data, {});
     expect(s.fired).toContain("ev_ptb");
   });

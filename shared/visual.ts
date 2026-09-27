@@ -27,6 +27,7 @@ export const SPRITE_PRESETS = [
   "child",
   "vip",
   "troublemaker",
+  "bartender",
 ] as const;
 export type SpritePreset = (typeof SPRITE_PRESETS)[number];
 
@@ -39,6 +40,7 @@ export const SPRITE_PRESET_LABEL: Record<SpritePreset, string> = {
   child: "Ребёнок",
   vip: "Деловой костюм",
   troublemaker: "Куртка, кепка",
+  bartender: "Бармен вагона-бистро",
 };
 
 const LEGACY_PRESET_MAP: Record<string, SpritePreset> = {
@@ -71,7 +73,20 @@ const LEGACY_PRESET_MAP: Record<string, SpritePreset> = {
 /** Стабильный хеш строки — чтобы пассажир без пресета всегда выглядел одинаково */
 const hash = (s: string) => s.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
+function genderFromName(name?: string): "female" | "male" | undefined {
+  if (!name) return undefined;
+  const normalized = name.toLowerCase().replace(/ё/g, "е");
+  if (/(?:^|[\s(])(пассажирка|спутница|женщина|девочка|мать|мама|бабушка)(?=$|[\s),])/.test(normalized)) return "female";
+  if (/(?:^|[\s(])(пассажир|спутник|мужчина|мальчик|отец|папа|дедушка)(?=$|[\s),])/.test(normalized)) return "male";
+
+  const words = normalized.match(/[а-я-]+/g) ?? [];
+  if (words.some((word) => /(?:ова|ева|ина|ына|ская|цкая|ая)$/.test(word))) return "female";
+  if (words.some((word) => /(?:ов|ев|ин|ын|ский|цкий|ой|ий)$/.test(word))) return "male";
+  return undefined;
+}
+
+export function defaultPreset(role: ActorRole, actorId: string, actorName?: string): SpritePreset {
+  const gender = genderFromName(actorName);
   switch (role) {
     case "conductor":
       return "conductor";
@@ -81,9 +96,13 @@ export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
       return "child";
     case "troublemaker":
       return "troublemaker";
+    case "bartender":
+      return "bartender";
     case "elderly":
+      if (gender) return gender === "female" ? "elderly-f" : "elderly-m";
       return hash(actorId) % 2 ? "elderly-m" : "elderly-f";
     default:
+      if (gender) return gender === "female" ? "passenger-f" : "passenger-m";
       return hash(actorId) % 2 ? "passenger-m" : "passenger-f";
   }
 }
@@ -100,9 +119,9 @@ function normalizePreset(value: unknown): SpritePreset | null {
 }
 
 /** Пресет актора: авторский, если он известен, иначе — по роли */
-export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual">): SpritePreset {
+export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual"> & Partial<Pick<Actor, "name">>): SpritePreset {
   const preset = normalizePreset(actor.visual?.preset);
-  return preset ?? defaultPreset(actor.role, actor.id);
+  return preset ?? defaultPreset(actor.role, actor.id, actor.name);
 }
 
 export const resolveLandscape = (data: ScenarioData): Landscape => {
@@ -233,6 +252,13 @@ export function resolveNavmeshPlacement(car: Car, actor: RuntimeActor): ScenePla
   return { x: pos.x, y: pos.y, zIndex: Math.round(pos.y) };
 }
 
+/** Статичная рабочая точка сотрудника за барной стойкой вагона-бистро. */
+function bartenderPlacement(car: Car): ScenePlacement | undefined {
+  if (car.type !== "bistro") return undefined;
+  const bar = TRAIN_NAVMESH_REGISTRY.bistro.specialZones?.barCounter?.pos;
+  return bar && { x: bar.x, y: bar.y, zIndex: Math.round(bar.y) + 1 };
+}
+
 function resolveSeatFacing(
     car: Car,
     actor: RuntimeActor,
@@ -241,7 +267,8 @@ function resolveSeatFacing(
     const cell = cellAt(car, Math.round(actor.x), Math.round(actor.y));
     const seat = cell?.seat ? mesh.seats[cell.seat] : undefined;
 
-    return seat?.facing ?? (seat ? mesh.seatFacing : undefined);
+    if (!cell?.seat) return undefined;
+    return seat?.facing ?? mesh.seatFacingOverrides?.[cell.seat] ?? (seat ? mesh.seatFacing : undefined);
 }
 
 export function projectGameScene(data: ScenarioData, sim: SimState, opts: ProjectOptions = {}): GameSceneModel {
@@ -313,7 +340,6 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
           facing = other.x >= ra.x ? "right" : "left";
         }
       }
-
       // Глубина: 0 — у окна дальнего борта, 1 — ближний край; проход — посередине
       const depth = car.width > 1 ? Math.min(1, Math.max(0, ra.y / (car.width - 1))) : 0.5;
 
@@ -334,7 +360,7 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
         // Во время визуальной паузы показывается только реакция на выбор. Таймер bubble
         // не тикает вместе с симуляцией, поэтому старая реплика не должна оставаться в кадре.
         bubble: phase === "consequence" ? null : ra.bubble?.text ?? null,
-        placement: resolveNavmeshPlacement(car, ra),
+        placement: def.role === "bartender" ? bartenderPlacement(car) ?? resolveNavmeshPlacement(car, ra) : resolveNavmeshPlacement(car, ra),
         usesWheelchair: def.accessibilityNeeds?.includes("wheelchair") ?? false,
       };
     });

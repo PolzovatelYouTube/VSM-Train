@@ -32,6 +32,8 @@ export interface CarNavMesh {
   doorEast: Vector2D;         // Переход в следующий вагон справа
   aisleSpine: Vector2D[];     // Главный проход вагона (узлы BFS-маршрутизации)
   seatFacing: Facing;
+  /** Направление для логических мест, у которых ещё нет отдельной визуальной точки. */
+  seatFacingOverrides?: Record<string, Facing>;
   seats: Record<string, SeatMeta>;
   specialZones?: Record<string, { name: string; pos: Vector2D; approachPos: Vector2D }>;
 }
@@ -142,6 +144,9 @@ export const NAVMESH_COMFORT: CarNavMesh = {
   id: "comfort",
   name: "Комфорт-класс (с детской игровой комнатой)",
   seatFacing: "left",
+  seatFacingOverrides: {
+    "9B": "right",
+  },
   doorWest: { x: 21.5, y: 71.3 },
   doorEast: { x: 88.2, y: 13.9 },
   aisleSpine: [

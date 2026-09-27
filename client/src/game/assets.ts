@@ -16,15 +16,18 @@ export const TRAIN_ASSETS = {
   head: `${BASE}train/train-head.png`,
 } as const;
 
+/** Состав для декоративной шапки главной страницы. */
+export const HOME_HERO_TRAIN_ASSET = `${BASE}train/home-hero-transparent.png`;
+
 export const CAR_SCENE_SIZE = { width: 1448, height: 1086 } as const;
 
 /** Изометрические подложки классов. Бистро использует ту же геометрию, что и standard. */
 export const CAR_SCENE_ASSETS: Record<CarType, string> = {
-  first: `${BASE}interiors/first.png`,
-  business: `${BASE}interiors/business.png`,
-  comfort: `${BASE}interiors/comfort.png`,
-  standard: `${BASE}interiors/standard.png`,
-  bistro: `${BASE}interiors/standard.png`,
+  first: `${BASE}interiors/first-cutout.png`,
+  business: `${BASE}interiors/business-cutout.png`,
+  comfort: `${BASE}interiors/comfort-cutout.png`,
+  standard: `${BASE}interiors/standard-cutout.png`,
+  bistro: `${BASE}interiors/standard-cutout.png`,
 };
 
 export interface CharacterImageFrame {
@@ -36,6 +39,13 @@ export interface CharacterImageFrame {
   nativeFacing: Facing;
 }
 
+/** Единая шкала роста персонажей относительно высоты изометрической сцены. */
+export const CHARACTER_HEIGHT_RATIO = {
+  adult: 0.2,
+  child: 0.16,
+  seated: 0.15,
+} as const;
+
 const characterFrame = (file: string, anchorY: number, heightRatio: number, nativeFacing: Facing = "right",): CharacterImageFrame => ({
   src: `${BASE}characters/${file}`,
   anchorX: 0.5,
@@ -45,46 +55,67 @@ const characterFrame = (file: string, anchorY: number, heightRatio: number, nati
 });
 
 const CHARACTER_IMAGE_FRAMES = {
+  conductor: {
+    stand: characterFrame("проводник.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+  },
   child: {
-    stand: characterFrame("child_boy_stand.png", 0.5, 0.2),
-    sit: characterFrame("child_boy_sit.png", 0.5, 0.15),
+    stand: characterFrame("child_boy_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.child),
+    sit: characterFrame("child_boy_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   elderly: {
-    stand: characterFrame("elderly_woman_stand.png", 0.5, 0.2),
-    sit: characterFrame("elderly_woman_sit.png", 0.5, 0.15),
+    stand: characterFrame("elderly_woman_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("elderly_woman_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   passenger: {
-    stand: characterFrame("passenger_male_stand.png", 0.5, 0.2),
-    sit: characterFrame("passenger_male_sit.png", 0.5, 0.15),
+    stand: characterFrame("passenger_male_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("passenger_male_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   vip: {
-    stand: characterFrame("vip_businessman_walk.png", 0.5, 0.2),
-    sit: characterFrame("vip_businessman_sit.png", 0.5, 0.15),
+    stand: characterFrame("vip_businessman_walk.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("vip_businessman_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
+  },
+  bartender: {
+    stand: characterFrame("bartender.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("bartender.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
   },
   wheelchair: {
-    stand: characterFrame("prm_passenger_wheelchair.png", 0.5, 0.2),
-    sit: characterFrame("prm_passenger_sit.png", 0.5, 0.15),
+    stand: characterFrame("prm_passenger_wheelchair.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("prm_passenger_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
 } as const;
 
-/** PNG-поза, если для персонажа она есть; undefined означает SVG-fallback. */
+type CharacterPoseFrames = {
+  stand: CharacterImageFrame;
+  sit?: CharacterImageFrame;
+};
+
+/** Полный маппинг старых пресетов на текущие PNG-ассеты. */
+const CHARACTER_PRESET_IMAGE_FRAMES: Record<SpritePreset, CharacterPoseFrames> = {
+  conductor: CHARACTER_IMAGE_FRAMES.conductor,
+  "passenger-f": CHARACTER_IMAGE_FRAMES.passenger,
+  "passenger-m": CHARACTER_IMAGE_FRAMES.passenger,
+  "elderly-f": CHARACTER_IMAGE_FRAMES.elderly,
+  "elderly-m": CHARACTER_IMAGE_FRAMES.elderly,
+  child: CHARACTER_IMAGE_FRAMES.child,
+  vip: CHARACTER_IMAGE_FRAMES.vip,
+  troublemaker: CHARACTER_IMAGE_FRAMES.passenger,
+  bartender: CHARACTER_IMAGE_FRAMES.bartender,
+};
+
+function imageFrameForPose(frames: CharacterPoseFrames, pose: "stand" | "sit"): CharacterImageFrame {
+  return pose === "sit" ? frames.sit ?? frames.stand : frames.stand;
+}
+
+/** PNG-поза из текущего набора ассетов для любого старого пресета. */
 export function characterImageFrame(
   preset: SpritePreset,
   state: CharacterState,
   seated: boolean,
   usesWheelchair: boolean,
-): CharacterImageFrame | undefined {
+): CharacterImageFrame {
   const pose = seated || state === "sit" ? "sit" : "stand";
-  if (usesWheelchair) return CHARACTER_IMAGE_FRAMES.wheelchair[pose];
-  if (preset === "child") return CHARACTER_IMAGE_FRAMES.child[pose];
-  if (preset === "elderly-f" || preset === "elderly-m") return CHARACTER_IMAGE_FRAMES.elderly[pose];
-  if (preset === "vip") return CHARACTER_IMAGE_FRAMES.vip[pose];
-  if (preset === "passenger-f" || preset === "passenger-m") {
-    return pose === "sit"
-      ? CHARACTER_IMAGE_FRAMES.passenger.sit
-      : CHARACTER_IMAGE_FRAMES.passenger.stand ?? CHARACTER_IMAGE_FRAMES.passenger.sit;
-  }
-  return undefined;
+  if (usesWheelchair) return imageFrameForPose(CHARACTER_IMAGE_FRAMES.wheelchair, pose);
+  return imageFrameForPose(CHARACTER_PRESET_IMAGE_FRAMES[preset], pose);
 }
 
 export interface LandscapeAsset {
@@ -189,6 +220,7 @@ export const SPRITE_STYLES: Record<SpritePreset, SpriteStyle> = {
   "elderly-m": { skin: "#e7bf9f", hair: "#e5e7eb", hairStyle: "bald", top: "#7c8b6e", bottom: "#44403c", shoes: "#3f3a36", extra: "glasses" },
   child: { skin: "#f6d3b5", hair: "#b7791f", hairStyle: "kid", top: "#f59e0b", bottom: "#2563eb", shoes: "#dc2626", scale: 0.66 },
   vip: { skin: "#eac29f", hair: "#1f1a17", hairStyle: "short", top: "#262a33", bottom: "#1f2229", shoes: "#0b0b0c", extra: "tie" },
+  bartender: { skin: "#e8b98f", hair: "#2d2118", hairStyle: "short", top: "#1f3a68", bottom: "#1a2b4a", shoes: "#111827", extra: "tie" },
   troublemaker: { skin: "#e3b48c", hair: "#2a1f1a", hairStyle: "short", top: "#c2412d", bottom: "#2f3a4a", shoes: "#1f2937", extra: "hood" },
 };
 

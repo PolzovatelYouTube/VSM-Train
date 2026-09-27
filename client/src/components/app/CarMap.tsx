@@ -45,6 +45,7 @@ export const ROLE_COLOR: Record<ActorRole, string> = {
   child: "#f59e0b",
   troublemaker: "#ef4444",
   conductor: "#1e293b",
+  bartender: "#a16207",
 };
 
 const v = (name: string) => `hsl(var(--${name}))`;
@@ -319,6 +320,7 @@ export function Legend() {
     { role: "elderly", label: "Пожилой" },
     { role: "child", label: "Ребёнок" },
     { role: "troublemaker", label: "Конфликтный" },
+    { role: "bartender", label: "Бармен" },
   ];
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

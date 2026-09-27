@@ -22,6 +22,7 @@ import {
   SPRITE_PRESETS,
   resolveNavmeshPlacement,
 } from "../shared/visual";
+import { CHARACTER_HEIGHT_RATIO, characterImageFrame } from "../client/src/game/assets";
 
 afterEach(() => vi.useRealTimers());
 
@@ -63,6 +64,16 @@ describe("визуальная сцена: обратная совместимо
 });
 
 describe("пресеты спрайтов", () => {
+  it("проводник использует PNG и общую шкалу роста взрослых персонажей", () => {
+    const conductor = characterImageFrame("conductor", "idle", false, false);
+    const passenger = characterImageFrame("passenger-m", "idle", false, false);
+
+    expect(conductor?.src).toContain("characters/проводник.png");
+    expect(conductor?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.adult);
+    expect(passenger?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.adult);
+    expect(characterImageFrame("child", "idle", false, false)?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.child);
+  });
+
   it("по роли и с fallback для неизвестного пресета", () => {
     expect(defaultPreset("conductor", "x")).toBe("conductor");
     expect(defaultPreset("troublemaker", "x")).toBe("troublemaker");
@@ -72,9 +83,35 @@ describe("пресеты спрайтов", () => {
     expect(resolvePreset({ id: "a", role: "passenger", visual: { preset: "child" } })).toBe("child");
   });
 
+  it("подбирает пол спрайта по обозначению и фамилии персонажа", () => {
+    expect(resolvePreset({ id: "zaitseva", name: "Зайцева", role: "passenger" })).toBe("passenger-f");
+    expect(resolvePreset({ id: "kim", name: "Пассажирка Ким", role: "passenger" })).toBe("passenger-f");
+    expect(resolvePreset({ id: "kuznetsov", name: "Кузнецов", role: "passenger" })).toBe("passenger-m");
+    expect(resolvePreset({ id: "andreeva", name: "Андреева", role: "elderly" })).toBe("elderly-f");
+    expect(resolvePreset({ id: "fomin", name: "Фомин", role: "elderly" })).toBe("elderly-m");
+  });
+
+  it("сопоставляет все старые пресеты текущему набору PNG", () => {
+    expect(characterImageFrame("passenger-f", "idle", false, false)?.src).toContain("passenger_male_stand.png");
+    expect(characterImageFrame("passenger-m", "idle", false, false)?.src).toContain("passenger_male_stand.png");
+    expect(characterImageFrame("elderly-f", "idle", false, false)?.src).toContain("elderly_woman_stand.png");
+    expect(characterImageFrame("elderly-m", "idle", false, false)?.src).toContain("elderly_woman_stand.png");
+    expect(characterImageFrame("troublemaker", "idle", false, false)?.src).toContain("passenger_male_stand.png");
+  });
+
   it("пресет пассажира стабилен для одного id", () => {
     expect(defaultPreset("passenger", "a_owner")).toBe(defaultPreset("passenger", "a_owner"));
     for (const a of demoScenario().actors) expect(SPRITE_PRESETS).toContain(resolvePreset(a));
+  });
+
+  it("бармен использует отдельный пресет и закреплён за стойкой бистро", () => {
+    const data = demoScenario();
+    const bartender = data.actors.find((actor) => actor.role === "bartender")!;
+    const bistro = data.train.cars.find((car) => car.type === "bistro")!;
+    const scene = projectGameScene(data, createSim(data), { viewCarId: bistro.id, follow: false });
+
+    expect(resolvePreset(bartender)).toBe("bartender");
+    expect(scene.characters.find((character) => character.id === bartender.id)?.placement).toEqual({ x: 86.5, y: 24.5, zIndex: 26 });
   });
 
   it("говорящий сопоставляется с актором по имени", () => {
@@ -110,8 +147,25 @@ describe("projectGameScene", () => {
     actor.seated = true;
     actor.path = [];
 
-    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 65.5, y: 20, zIndex: 73 });
-    expect(projectGameScene(data, s).characters.find((c) => c.id === actor.id)?.placement).toEqual({ x: 65.5, y: 20, zIndex: 73 });
+    expect(resolveNavmeshPlacement(car, actor)).toEqual({ x: 63.9, y: 30.2, zIndex: 73 });
+    const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
+    expect(sceneActor?.placement).toEqual({ x: 63.9, y: 30.2, zIndex: 73 });
+    expect(sceneActor?.facing).toBe("left");
+  });
+
+  it("сажает Соколову на месте 9B лицом вправо", () => {
+    const data = demoScenario();
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "9B")!;
+    const s = createSim(data);
+    const actor = s.actors.find((a) => a.id === "a_elderly")!;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.seated = true;
+    actor.path = [];
+
+    const sceneActor = projectGameScene(data, s).characters.find((c) => c.id === actor.id);
+    expect(sceneActor?.facing).toBe("right");
   });
 
   it("dialogue: фокус на Громове, он говорит, остальные приглушены", () => {

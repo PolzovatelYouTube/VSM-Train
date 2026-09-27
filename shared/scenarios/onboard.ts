@@ -89,10 +89,22 @@ export function onboardScenario(): ScenarioData {
             id: "p3a",
             text: "«Вы можете приобрести переноску на борту нашего поезда. Я принесу её прямо к Вашему месту»",
             next: "p4",
+            if: { flag: "carrier_out_of_stock", eq: false },
             effects: { loyalty: 10, safety: 10 },
             correct: true,
             step: "solution",
             set: { carrier_offered: true },
+          },
+          {
+            id: "p3c",
+            text: "«Переноски на борту закончились. Я вызову начальника поезда, чтобы согласовать дальнейшие действия на ближайшей станции»",
+            next: null,
+            if: { flag: "carrier_out_of_stock" },
+            effects: { loyalty: -2, safety: 8 },
+            correct: true,
+            step: "solution",
+            set: { np_called: true, carrier_shortage_reported: true },
+            feedback: "Проводник не обещает отсутствующий ресурс: начальник поезда координирует дальнейшее решение на ближайшей станции.",
           },
           {
             id: "p3b",
@@ -237,6 +249,7 @@ export function onboardScenario(): ScenarioData {
             text: "Попытаться вывести пассажира из вагона силой",
             next: "d_ptb",
             effects: { loyalty: -10, safety: -20 },
+            feedback: "Проводник изолирует других пассажиров и ведёт наблюдение на безопасной дистанции; силовое задержание осуществляют только сотрудники ПТБ или транспортной полиции.",
           },
         ],
       },
@@ -301,6 +314,7 @@ export function onboardScenario(): ScenarioData {
             text: "Самому удерживать пассажира до прихода ПТБ",
             next: null,
             effects: { loyalty: -5, safety: -20 },
+            feedback: "Проводник изолирует других пассажиров и ведёт наблюдение на безопасной дистанции; силовое задержание осуществляют только сотрудники ПТБ или транспортной полиции.",
           },
         ],
       },
@@ -391,7 +405,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "m3a",
-            text: "Уведомить начальника поезда, объявить по громкой связи поиск медработника среди пассажиров, запросить медиков на ближайшую станцию",
+            text: "Запросить начальника поезда сделать объявление по громкой связи о поиске медицинского работника и запросить медиков на ближайшую станцию",
             next: "m4",
             effects: { loyalty: 3, safety: 10 },
             correct: true,
@@ -401,7 +415,7 @@ export function onboardScenario(): ScenarioData {
           },
           {
             id: "m3b",
-            text: "Начальник поезда уже в курсе — объявить поиск медработника и передать, что состояние ухудшается",
+            text: "Передать начальнику поезда, что состояние ухудшается, и попросить его сделать объявление о поиске медицинского работника",
             next: "m4",
             effects: { loyalty: 2, safety: 12 },
             correct: true,
@@ -441,7 +455,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "m5a",
-            text: "Остаться рядом, уведомить начальника поезда, объявить поиск медработника и вызвать медиков на ближайшую станцию",
+            text: "Остаться рядом, уведомить начальника поезда, попросить его объявить поиск медицинского работника и вызвать медиков на ближайшую станцию",
             next: "m4",
             effects: { loyalty: 5, safety: 15 },
             correct: true,
@@ -458,7 +472,7 @@ export function onboardScenario(): ScenarioData {
         options: [
           {
             id: "mba",
-            text: "Остаться с пассажиркой, объявить поиск медработника среди пассажиров, вызвать медиков на ближайшую станцию",
+            text: "Остаться с пассажиркой, попросить начальника поезда объявить поиск медицинского работника и вызвать медиков на ближайшую станцию",
             next: null,
             effects: { loyalty: 5, safety: 10 },
             correct: true,
@@ -526,86 +540,75 @@ export function onboardScenario(): ScenarioData {
   };
 
   const actors: Actor[] = [
-  {
-    id: "a_conductor",
-    name: "Проводник (вы)",
-    role: "conductor",
-    ticket: null,
-    spawn: { carId: car2.id, x: 1, y: 2 },
-    mood: 100,
-    steps: [],
-  },
-
-  {
-    id: "a_pet_owner",
-    name: "Орлова",
-    // Не passenger: у обычного passenger проблемный набор PNG-поз.
-    // elderly даёт стабильный stand/sit-спрайт.
-    role: "elderly",
-    ticket: { carId: car2.id, seat: "4C" },
-    // Спавн только в проходе/у двери, а не на кресле.
-    spawn: { carId: car2.id, x: car2.length - 1, y: 2 },
-    mood: 70,
-    steps: [
-      { type: "wait", seconds: 2 },
-      { type: "goto", target: { kind: "ownSeat" } },
-      { type: "sit" },
-      { type: "say", text: "Бублик, сиди смирно." },
-      { type: "wait", seconds: 3 },
-      { type: "emit", eventId: "ev_pet" },
-    ],
-  },
-
-  {
-    id: "a_drunk",
-    name: "Кузнецов",
-    // Не passenger: troublemaker нужен для конфликтной сцены
-    // и не должен использовать проблемный стандартный passenger-спрайт.
-    role: "troublemaker",
-    ticket: { carId: car4.id, seat: "6B" },
-    // Стартуем непосредственно на его месте — sit будет корректно
-    // привязан к 6B, а не к соседней клетке.
-    spawn: { carId: car4.id, x: 7, y: 1 },
-    mood: 50,
-    steps: [
-      { type: "sit" },
-      { type: "wait", seconds: 30 },
-      // Встаёт в проход, а не на другом сиденье.
-      { type: "goto", target: { kind: "cell", carId: car4.id, x: 7, y: 3 } },
-      { type: "say", text: "Эй! Где тут музыку погромче делают?!" },
-      { type: "mood", delta: -20 },
-      { type: "emit", eventId: "ev_drunk" },
-    ],
-  },
-
-  {
-    id: "a_neighbour",
-    name: "Смирнов",
-    // elderly вместо passenger: гарантированно нормальная посадка.
-    role: "elderly",
-    ticket: { carId: car4.id, seat: "6A" },
-    spawn: { carId: car4.id, x: 7, y: 0 },
-    mood: 80,
-    steps: [{ type: "sit" }],
-  },
-
-  {
-    id: "a_headache",
-    name: "Белова",
-    // Уже правильная роль: для elderly предусмотрены stand/sit-кадры.
-    role: "elderly",
-    ticket: { carId: car1.id, seat: "3B" },
-    spawn: { carId: car1.id, x: 4, y: 2 },
-    mood: 60,
-    steps: [
-      { type: "sit" },
-      { type: "wait", seconds: 68 },
-      { type: "mood", delta: -30 },
-      { type: "say", text: "Голова раскалывается…" },
-      { type: "emit", eventId: "ev_medicine" },
-    ],
-  },
-];
+    {
+      id: "a_conductor",
+      name: "Проводник (вы)",
+      role: "conductor",
+      ticket: null,
+      spawn: { carId: car2.id, x: 1, y: 2 },
+      mood: 100,
+      steps: [],
+    },
+    {
+      id: "a_bartender",
+      name: "Бармен вагона-бистро",
+      role: "bartender",
+      ticket: null,
+      spawn: { carId: car3.id, x: 3, y: 0 },
+      mood: 80,
+      steps: [],
+    },
+    {
+      id: "a_pet_owner",
+      name: "Орлова",
+      role: "passenger",
+      ticket: { carId: car2.id, seat: "4C" },
+      spawn: { carId: car2.id, x: car2.length - 1, y: 2 },
+      mood: 70,
+      steps: [
+        { type: "wait", seconds: 2 },
+        { type: "goto", target: { kind: "ownSeat" } },
+        { type: "sit" },
+        { type: "say", text: "Бублик, сиди смирно." },
+        { type: "wait", seconds: 3 },
+        { type: "emit", eventId: "ev_pet" },
+      ],
+    },
+    {
+      id: "a_drunk",
+      name: "Кузнецов",
+      role: "troublemaker",
+      ticket: { carId: car4.id, seat: "6B" },
+      spawn: { carId: car4.id, x: 7, y: 1 },
+      mood: 50,
+      steps: [
+        { type: "sit" },
+        { type: "wait", seconds: 30 },
+        { type: "goto", target: { kind: "cell", carId: car4.id, x: 7, y: 3 } },
+        { type: "say", text: "Эй! Где тут музыку погромче делают?!" },
+        { type: "mood", delta: -20 },
+        { type: "emit", eventId: "ev_drunk" },
+      ],
+    },
+    {
+      id: "a_neighbour",
+      name: "Смирнов",
+      role: "passenger",
+      ticket: { carId: car4.id, seat: "6A" },
+      spawn: { carId: car4.id, x: 7, y: 0 },
+      mood: 80,
+      steps: [{ type: "sit" }],
+    },
+    {
+      id: "a_headache",
+      name: "Белова",
+      role: "passenger",
+      ticket: { carId: car1.id, seat: "3B" },
+      spawn: { carId: car1.id, x: 4, y: 2 },
+      mood: 60,
+      steps: [{ type: "sit" }, { type: "wait", seconds: 68 }, { type: "mood", delta: -30 }],
+    },
+  ];
 
   return {
     version: 1,

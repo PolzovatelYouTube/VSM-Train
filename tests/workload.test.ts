@@ -141,7 +141,13 @@ describe("динамический риск и управление нагруз
     const data = fixture();
     expect(scenarioDataSchema.safeParse(data).success).toBe(true);
     expect(data.events.filter((ev) => ev.trigger.type === "time")).toHaveLength(4);
-    expect(data.events.find((ev) => ev.id === "unattended")?.trigger).toEqual({ type: "time", atSec: 45 });
+    const unattended = data.events.find((ev) => ev.id === "unattended")!;
+    expect(unattended.trigger).toEqual({ type: "time", atSec: 45 });
+    expect(unattended.category).toBe("security");
+    expect(unattended.location?.carId).toBe(data.train.cars[2].id);
+    const radio = unattended.nodes[0].options.find((option) => option.id === "item-radio")!;
+    expect(radio.timeCostSec).toBe(8);
+    expect(radio.feedback).toContain("служебной радиостанции");
   });
 
   it("старые события без окна ответа не получают новый неявный штраф на 30-й секунде", () => {

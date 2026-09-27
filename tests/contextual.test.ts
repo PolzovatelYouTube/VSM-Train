@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createSim, openNode, chooseOption, findNode, visibleOptions, tick, computeResult, resolveOutcome } from "../shared/engine";
+import { createSim, openNode, chooseOption, findNode, visibleOptions, tick, computeResult, resolveNext, resolveOutcome } from "../shared/engine";
 import { buildDebrief } from "../shared/analytics";
 import { scenarioDataSchema, type DialogueOption } from "../shared/scenario";
 import { contextualScenario as buildContextualScenario } from "../shared/scenarios/contextual";
@@ -137,7 +137,7 @@ describe("контекстные решения", () => {
     openNode(s, data, "panic", "panic_start");
     pick(data, s, "panic_help");
     expect(s.log[0].context?.known).toContain("Уточнено: индивидуальное недомогание, массовой паники нет: нет");
-    expect(s.log[0].context?.missing).toEqual([]);
+    expect(s.log[0].context?.missing).toContain("Наблюдается быстрое ухудшение состояния");
     expect(s.log[0].effects.safety).toBe(1);
   });
 
@@ -186,6 +186,69 @@ describe("контекстные решения", () => {
     expect(resolveOutcome(option, s).correct).toBe(true);
     s.flags.intoxication_stage = 3;
     expect(resolveOutcome(option, s)).toMatchObject({ correct: false, effects: { safety: -6 } });
+  });
+
+  it("сверка через ММТ ведёт к объяснению, соответствующему причине расхождения", () => {
+    const data = contextualScenario();
+    const s = createSim(data);
+    const option = findNode(data, "seat", "seat_start")!.options.find((item) => item.id === "seat_check")!;
+
+    expect(option.text).toContain("переносной терминал ММТ");
+    s.flags.unclaimed_evoucher = true;
+    expect(resolveNext(option, s)).toBe("seat_checked_unclaimed");
+    s.flags.unclaimed_evoucher = false;
+    s.flags.wrong_car = true;
+    expect(resolveNext(option, s)).toBe("seat_checked_wrong_car");
+  });
+
+  it("при технической причине запаха доступен вызов бортинженера вместо разговора с соседом", () => {
+    const data = contextualScenario();
+    const s = createSim(data);
+    s.flags.smell_ventilation = true;
+    openNode(s, data, "smell", "smell_start");
+    pick(data, s, "smell_check");
+    const node = findNode(data, "smell", "smell_start")!;
+
+    expect(visibleOptions(node, s).some((option) => option.id === "smell_talk")).toBe(false);
+    expect(visibleOptions(node, s).some((option) => option.id === "smell_engineer")).toBe(true);
+    expect(node.options.find((option) => option.id === "smell_talk")?.text).toContain("По отдельности");
+    pick(data, s, "smell_engineer");
+    expect(s.flags.ventilation_engineer_called).toBe(true);
+  });
+
+  it("уход за ребёнком начинается с подтверждённого санузла, а быстрое ухудшение передаётся ЛНП", () => {
+    const data = contextualScenario();
+    const care = createSim(data);
+    openNode(care, data, "care", "care_start");
+    pick(data, care, "care_ask");
+    const careNode = findNode(data, "care", "care_start")!;
+    expect(visibleOptions(careNode, care).some((option) => option.id === "care_toilet")).toBe(true);
+    expect(visibleOptions(careNode, care).some((option) => option.id === "care_arrange")).toBe(false);
+
+    const noToilet = createSim(data);
+    noToilet.resources.capabilities[data.train.cars[1].id].babyCareSpace = false;
+    openNode(noToilet, data, "care", "care_start");
+    pick(data, noToilet, "care_ask");
+    expect(visibleOptions(careNode, noToilet).some((option) => option.id === "care_toilet")).toBe(false);
+    expect(visibleOptions(careNode, noToilet).some((option) => option.id === "care_arrange")).toBe(true);
+
+    const emergency = createSim(data);
+    openNode(emergency, data, "panic", "panic_start");
+    pick(data, emergency, "panic_ask");
+    pick(data, emergency, "panic_rapid_change");
+    const panicNode = findNode(data, "panic", "panic_start")!;
+    expect(visibleOptions(panicNode, emergency).some((option) => option.id === "panic_help")).toBe(false);
+    expect(visibleOptions(panicNode, emergency).some((option) => option.id === "panic_escalate_stop")).toBe(true);
+  });
+
+  it("ситуации привязаны к разным пассажирам, без ещё не добавленного актора бармена", () => {
+    const data = contextualScenario();
+    expect(data.events.find((event) => event.id === "sale")?.actorId).toBe("drunk_passenger");
+    expect(data.actors.map((actor) => actor.id)).toEqual(expect.arrayContaining([
+      "mother_with_child", "drunk_passenger", "smell_complainer", "neighbour_grumpy",
+    ]));
+    expect(data.actors.some((actor) => actor.id === "bistro_attendant")).toBe(false);
+    expect(findNode(data, "stages", "stages_observe")?.text).toContain("купленный в вагоне-бистро");
   });
 
   it.each(["training", "check"] as const)("серверный replay сохраняет стоимость и контекст (%s)", (mode) => {

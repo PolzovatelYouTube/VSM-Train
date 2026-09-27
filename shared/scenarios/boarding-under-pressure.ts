@@ -4,8 +4,8 @@ export const BOARDING_PRESSURE_SCENARIO_NAME = "Посадка под давле
 
 /**
  * Синтетический учебный сценарий о посадке под нагрузкой.
- * Одновременно развиваются проверка билета, разряженный телефон,
- * заблокированный проход, спор за место и отсутствие документа.
+ * Сначала у входной двери последовательно проверяются билеты и документы,
+ * затем действие переходит в салон: к проходу с багажом и спору за место.
  */
 export function boardingUnderPressureScenario(): ScenarioData {
   const car = buildCar(1, "comfort", 8);
@@ -62,8 +62,29 @@ export function boardingUnderPressureScenario(): ScenarioData {
         }],
       },
       {
+        id: "boarding_identity", title: "Нет документа для подтверждения личности", category: "request", actorId: noIdPassenger.id,
+        trigger: { type: "time", atSec: 18 }, stage: "boarding", startNode: "identity_start",
+        nodes: [
+          {
+            id: "identity_start", speaker: noIdPassenger.name, text: "Билет есть, но документ я оставил дома. Есть фотография паспорта в телефоне. До отправления совсем немного времени.", timerSec: 16,
+            options: [
+              { id: "identity_check", text: "Спокойно проверить, есть ли иной предусмотренный способ или допустимый документ для идентификации", next: "identity_none", effects: { loyalty: 0, safety: 0 }, timeCostSec: 5, correct: true, step: "acknowledge", set: { "boarding.identity_options_checked": true }, feedback: "Сначала проверены возможные способы идентификации, а не сделано предположение." },
+              { id: "identity_photo", text: "Принять фотографию документа как достаточное подтверждение и разрешить посадку", next: null, effects: { loyalty: 4, safety: -15 }, set: { "boarding.unverified_boarding": true, "boarding.identity_photo_accepted": true, "boarding.np_called": true }, feedback: "Фотография документа не заменяет предусмотренную идентификацию. Допуск без неё создаёт существенный риск и требует немедленной эскалации начальнику поезда." },
+              { id: "identity_refuse_immediate", text: "Сразу отказать, не выясняя наличие другого допустимого способа идентификации", next: null, effects: { loyalty: -5, safety: 1 }, feedback: "Результат может оказаться тем же, но обязательный этап проверки пропущен." },
+            ],
+          },
+          {
+            id: "identity_none", speaker: "Обстановка", text: "Другого предусмотренного способа подтвердить личность у пассажира не оказалось.", timerSec: 12,
+            options: [
+              { id: "identity_deny", text: "Объяснить невозможность посадки и подсказать дальнейший порядок действий", next: null, effects: { loyalty: 0, safety: 3 }, correct: true, step: "solution", feedback: "Ограничение объяснено после проверки возможных альтернатив." },
+              { id: "identity_exception", text: "Сделать исключение, потому что пассажир выглядит убедительно и билет существует", next: null, effects: { loyalty: 4, safety: -8 }, set: { "boarding.unverified_boarding": true }, feedback: "Субъективное доверие пассажиру не заменяет подтверждение личности." },
+            ],
+          },
+        ],
+      },
+      {
         id: "boarding_luggage", title: "Багаж перекрывает проход", category: "technical", actorId: null,
-        trigger: { type: "time", atSec: 18 }, stage: "boarding", startNode: "luggage_start",
+        trigger: { type: "time", atSec: 32 }, stage: "boarding", startNode: "luggage_start",
         nodes: [{
           id: "luggage_start", speaker: "Обстановка", text: "В проходе оставлены два крупных чемодана. Пассажиры вынуждены обходить их, посадочный поток замедляется.", timerSec: 14,
           onTimeout: { next: null, effects: { loyalty: -2, safety: -6 }, set: { "boarding.aisle_blocked": true }, text: "Проход остался частично заблокирован." },
@@ -76,7 +97,7 @@ export function boardingUnderPressureScenario(): ScenarioData {
       },
       {
         id: "boarding_conflict", title: "Два пассажира у места 4A", category: "conflict", actorId: seatPassenger.id,
-        trigger: { type: "time", atSec: 25 }, stage: "boarding", startNode: "seat_start",
+        trigger: { type: "time", atSec: 46 }, stage: "boarding", startNode: "seat_start",
         context: [
           { flag: "boarding.seat_documents_checked", label: "Документы обоих пассажиров проверены" },
           { flag: "boarding.spare_seat_used", label: "Резервное место уже занято" },
@@ -91,32 +112,17 @@ export function boardingUnderPressureScenario(): ScenarioData {
             ],
           },
           {
-            id: "seat_checked", speaker: "Проводник", text: "Расхождение подтверждено. В вагоне есть одно резервное место, но оно не равноценно исходному.", timerSec: 14,
+            id: "seat_checked", speaker: "Проводник", text: "Расхождение подтверждено. В вагоне есть одно резервное место, но проводник не вправе самостоятельно назначать его пассажиру до решения начальника поезда.", timerSec: 14,
             options: [
-              { id: "seat_spare", text: "Предложить временно использовать проверенное свободное место и передать расхождение начальнику поезда", next: null, if: { all: [{ flag: "boarding.seat_documents_checked" }, { flag: "boarding.spare_seat_used", eq: false }, { resource: { type: "availableSeats", carId: car.id, range: { gte: 1 } } }] }, effects: { loyalty: 2, safety: 3 }, correct: true, step: "solution", set: { "boarding.spare_seat_used": true }, feedback: "Использован реально доступный ресурс, но временное размещение не подменяет выяснение причины совпадения билетов." },
-              { id: "seat_wait_np", text: "Не обещать конкретное место: вызвать начальника поезда и попросить пассажиров освободить проход", next: null, effects: { loyalty: -1, safety: 3 }, correct: true, step: "solution", set: { "boarding.np_called": true }, feedback: "Пассажиры вынуждены ждать, зато проводник не обещает неподтверждённый ресурс." },
+              { id: "seat_wait_np", text: "Не обещать конкретное место: вызвать начальника поезда и попросить пассажиров освободить проход", next: "seat_np_guidance", effects: { loyalty: -1, safety: 3 }, correct: true, step: "solution", set: { "boarding.np_called": true }, feedback: "Расхождение передано уполномоченному сотруднику; проводник не назначает резервное место самостоятельно." },
               { id: "seat_promise", text: "Пообещать одному пассажиру лучшее место в другом вагоне, чтобы быстрее закончить спор", next: null, effects: { loyalty: 3, safety: 0 }, set: { "boarding.unverified_promise": true }, feedback: "Конфликт временно снят, но обещание дано без проверки ресурса." },
             ],
           },
-        ],
-      },
-      {
-        id: "boarding_identity", title: "Нет документа для подтверждения личности", category: "request", actorId: noIdPassenger.id,
-        trigger: { type: "time", atSec: 38 }, stage: "boarding", startNode: "identity_start",
-        nodes: [
           {
-            id: "identity_start", speaker: noIdPassenger.name, text: "Билет есть, но документ я оставил дома. Есть фотография паспорта в телефоне. До отправления совсем немного времени.", timerSec: 16,
+            id: "seat_np_guidance", speaker: "Начальник поезда", text: "Обращение принято. До окончательного решения можно использовать только согласованный временный вариант, не обещая смену класса или постоянное место.", timerSec: 12,
             options: [
-              { id: "identity_check", text: "Спокойно проверить, есть ли иной предусмотренный способ или допустимый документ для идентификации", next: "identity_none", effects: { loyalty: 0, safety: 0 }, timeCostSec: 5, correct: true, step: "acknowledge", set: { "boarding.identity_options_checked": true }, feedback: "Сначала проверены возможные способы идентификации, а не сделано предположение." },
-              { id: "identity_photo", text: "Принять фотографию документа как достаточное подтверждение и разрешить посадку", next: null, effects: { loyalty: 4, safety: -6 }, set: { "boarding.unverified_boarding": true }, feedback: "Фотография сама по себе не должна автоматически подменять предусмотренный способ подтверждения личности." },
-              { id: "identity_refuse_immediate", text: "Сразу отказать, не выясняя наличие другого допустимого способа идентификации", next: null, effects: { loyalty: -5, safety: 1 }, feedback: "Результат может оказаться тем же, но обязательный этап проверки пропущен." },
-            ],
-          },
-          {
-            id: "identity_none", speaker: "Обстановка", text: "Другого предусмотренного способа подтвердить личность у пассажира не оказалось.", timerSec: 12,
-            options: [
-              { id: "identity_deny", text: "Объяснить невозможность посадки и подсказать дальнейший порядок действий", next: null, effects: { loyalty: 0, safety: 3 }, correct: true, step: "solution", feedback: "Ограничение объяснено после проверки возможных альтернатив." },
-              { id: "identity_exception", text: "Сделать исключение, потому что пассажир выглядит убедительно и билет существует", next: null, effects: { loyalty: 4, safety: -8 }, set: { "boarding.unverified_boarding": true }, feedback: "Субъективное доверие пассажиру не заменяет подтверждение личности." },
+              { id: "seat_spare", text: "По согласованию с ЛНП временно предложить проверенное свободное место", next: null, if: { all: [{ flag: "boarding.np_called" }, { flag: "boarding.spare_seat_used", eq: false }, { resource: { type: "availableSeats", carId: car.id, range: { gte: 1 } } }] }, effects: { loyalty: 1, safety: 2 }, correct: true, step: "solution", set: { "boarding.spare_seat_used": true }, feedback: "Временное размещение допустимо только после согласования с ЛНП и не отменяет разбор расхождения в системе." },
+              { id: "seat_wait_resolution", text: "Дождаться решения ЛНП, сохраняя проход свободным", next: null, effects: { loyalty: -1, safety: 3 }, correct: true, step: "solution", feedback: "Это наиболее осторожный вариант: проводник не распоряжается резервным ресурсом самостоятельно." },
             ],
           },
         ],

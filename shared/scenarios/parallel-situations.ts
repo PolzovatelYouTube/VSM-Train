@@ -6,6 +6,9 @@ export const PARALLEL_SITUATIONS_SCENARIO_NAME = "Parallel situations — упр
 /** Отдельный синтетический сценарий. Стадии риска не выводятся из категории. */
 export function parallelSituationsScenario() {
   const data = multiIncidentScenario();
+  // Проводник начинает в первом вагоне, бесхозная вещь — в третьем.
+  // Шесть секунд моделируют переход между вагонами до самого действия.
+  const itemCarTransferSec = 6;
   data.train.name = "Parallel situations: четыре обращения";
   data.durationSec = 80;
   // This variant supplies its own unattended-item branch below.
@@ -58,17 +61,18 @@ export function parallelSituationsScenario() {
   data.events.find((ev) => ev.id === "medical-worse")!.severity = 5;
 
   const unattended: GameEvent = {
-    id: "unattended", title: "Сообщение о бесхозной вещи", category: "technical", actorId: "item-reporter",
+    id: "unattended", title: "Сообщение о бесхозной вещи", category: "security", actorId: "item-reporter",
     trigger: { type: "time", atSec: 45 }, severity: 5, urgency: "critical", responseWindowSec: 10,
     location: { carId: data.train.cars[2].id, x: 6, y: 0 },
     escalation: { afterSec: 10, effects: { loyalty: -3, safety: -12 }, set: { crowd_near_item: true },
       text: "Пассажиры собираются у вещи, один пытается её сдвинуть." },
     startNode: "item-report", nodes: [
       { id: "item-report", kind: "decision", speaker: "Пассажир", text: "У сиденья лежит сумка, владелец не откликается. К ней подходят люди.", options: [
-        { id: "item-radio", text: "Не приближая людей к вещи, передать точное местоположение начальнику поезда и ПТБ", next: null,
-          timeCostSec: 2, effects: { loyalty: 0, safety: 6 }, correct: true, set: { item_reported: true } },
+        { id: "item-radio", text: "Не привлекая внимания пассажиров, передать по служебной радиостанции точное местоположение начальнику поезда и ПТБ", next: null,
+          timeCostSec: itemCarTransferSec + 2, effects: { loyalty: 0, safety: 6 }, correct: true, set: { item_reported: true },
+          feedback: "Доклад выполнен строго по служебной радиостанции с кодовой формулировкой, без громких объявлений и привлечения внимания пассажиров." },
         { id: "item-colleague", text: "Поручить коллеге ограничить приближение пассажиров, самому сразу доложить по рации", next: null,
-          timeCostSec: 3, effects: { loyalty: -1, safety: 8 }, correct: true, set: { item_reported: true } },
+          timeCostSec: itemCarTransferSec + 3, effects: { loyalty: -1, safety: 8 }, correct: true, set: { item_reported: true } },
       ] },
     ],
   };
