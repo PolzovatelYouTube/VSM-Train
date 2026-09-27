@@ -15,15 +15,18 @@ export const TRAIN_ASSETS = {
   head: `${BASE}train/train-head.png`,
 } as const;
 
+/** Состав для декоративной шапки главной страницы. */
+export const HOME_HERO_TRAIN_ASSET = `${BASE}train/home-hero-transparent.png`;
+
 export const CAR_SCENE_SIZE = { width: 1448, height: 1086 } as const;
 
 /** Изометрические подложки классов. Бистро использует ту же геометрию, что и standard. */
 export const CAR_SCENE_ASSETS: Record<CarType, string> = {
-  first: `${BASE}interiors/first.png`,
-  business: `${BASE}interiors/business.png`,
-  comfort: `${BASE}interiors/comfort.png`,
-  standard: `${BASE}interiors/standard.png`,
-  bistro: `${BASE}interiors/standard.png`,
+  first: `${BASE}interiors/first-cutout.png`,
+  business: `${BASE}interiors/business-cutout.png`,
+  comfort: `${BASE}interiors/comfort-cutout.png`,
+  standard: `${BASE}interiors/standard-cutout.png`,
+  bistro: `${BASE}interiors/standard-cutout.png`,
 };
 
 export interface CharacterImageFrame {
@@ -44,22 +47,26 @@ const characterFrame = (file: string, anchorY: number, heightRatio: number): Cha
 const CHARACTER_IMAGE_FRAMES = {
   child: {
     stand: characterFrame("child_boy_stand.png", 0.95, 0.25),
-    sit: characterFrame("child_boy_sit.png", 0.8, 0.2),
+    sit: characterFrame("child_boy_sit.png", 0.8, 0.13),
   },
   elderly: {
     stand: characterFrame("elderly_woman_stand.png", 0.95, 0.28),
-    sit: characterFrame("elderly_woman_sit.png", 0.8, 0.22),
+    sit: characterFrame("elderly_woman_sit.png", 0.8, 0.13),
   },
   passenger: {
-    sit: characterFrame("passenger_male_sit.png", 0.8, 0.22),
+    sit: characterFrame("passenger_male_sit.png", 0.8, 0.13),
   },
   vip: {
     stand: characterFrame("vip_businessman_walk.png", 0.95, 0.3),
-    sit: characterFrame("vip_businessman_sit.png", 0.8, 0.22),
+    sit: characterFrame("vip_businessman_sit.png", 0.8, 0.13),
+  },
+  bartender: {
+    stand: characterFrame("bartender.png", 0.95, 0.24),
+    sit: characterFrame("bartender.png", 0.95, 0.24),
   },
   wheelchair: {
     stand: characterFrame("prm_passenger_wheelchair.png", 0.9, 0.28),
-    sit: characterFrame("prm_passenger_sit.png", 0.8, 0.24),
+    sit: characterFrame("prm_passenger_sit.png", 0.8, 0.14),
   },
 } as const;
 
@@ -69,14 +76,15 @@ export function characterImageFrame(
   state: CharacterState,
   seated: boolean,
   usesWheelchair: boolean,
-): CharacterImageFrame | undefined {
+): CharacterImageFrame {
   const pose = seated || state === "sit" ? "sit" : "stand";
   if (usesWheelchair) return CHARACTER_IMAGE_FRAMES.wheelchair[pose];
   if (preset === "child") return CHARACTER_IMAGE_FRAMES.child[pose];
   if (preset === "elderly-f" || preset === "elderly-m") return CHARACTER_IMAGE_FRAMES.elderly[pose];
   if (preset === "vip") return CHARACTER_IMAGE_FRAMES.vip[pose];
+  if (preset === "bartender") return CHARACTER_IMAGE_FRAMES.bartender[pose];
   if ((preset === "passenger-f" || preset === "passenger-m") && pose === "sit") return CHARACTER_IMAGE_FRAMES.passenger.sit;
-  return undefined;
+  return pose === "sit" ? CHARACTER_IMAGE_FRAMES.passenger.sit : CHARACTER_IMAGE_FRAMES.vip.stand;
 }
 
 export interface LandscapeAsset {
@@ -167,6 +175,7 @@ export const SPRITE_STYLES: Record<SpritePreset, SpriteStyle> = {
   "elderly-m": { skin: "#e7bf9f", hair: "#e5e7eb", hairStyle: "bald", top: "#7c8b6e", bottom: "#44403c", shoes: "#3f3a36", extra: "glasses" },
   child: { skin: "#f6d3b5", hair: "#b7791f", hairStyle: "kid", top: "#f59e0b", bottom: "#2563eb", shoes: "#dc2626", scale: 0.66 },
   vip: { skin: "#eac29f", hair: "#1f1a17", hairStyle: "short", top: "#262a33", bottom: "#1f2229", shoes: "#0b0b0c", extra: "tie" },
+  bartender: { skin: "#e8b98f", hair: "#2d2118", hairStyle: "short", top: "#1f3a68", bottom: "#1a2b4a", shoes: "#111827", extra: "tie" },
   troublemaker: { skin: "#e3b48c", hair: "#2a1f1a", hairStyle: "short", top: "#c2412d", bottom: "#2f3a4a", shoes: "#1f2937", extra: "hood" },
 };
 
@@ -206,3 +215,4 @@ export function preloadAssets(urls: string[], onProgress?: (share: number) => vo
     ),
   ).then(() => ({ failed }));
 }
+

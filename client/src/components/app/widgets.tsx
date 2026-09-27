@@ -149,6 +149,7 @@ export const CATEGORY_COLOR: Record<string, string> = {
   conflict: "bg-[hsl(var(--danger))]/15 text-[hsl(var(--danger))]",
   medical: "bg-[hsl(var(--chart-5))]/15 text-[hsl(var(--chart-5))]",
   technical: "bg-[hsl(var(--loyalty))]/15 text-[hsl(var(--loyalty))]",
+  security: "bg-[hsl(var(--safety))]/15 text-[hsl(var(--safety))]",
   request: "bg-primary/15 text-primary",
 };
 

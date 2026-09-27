@@ -27,6 +27,7 @@ export const SPRITE_PRESETS = [
   "child",
   "vip",
   "troublemaker",
+  "bartender",
 ] as const;
 export type SpritePreset = (typeof SPRITE_PRESETS)[number];
 
@@ -39,6 +40,7 @@ export const SPRITE_PRESET_LABEL: Record<SpritePreset, string> = {
   child: "Ребёнок",
   vip: "Деловой костюм",
   troublemaker: "Куртка, кепка",
+  bartender: "Бармен вагона-бистро",
 };
 
 /** Стабильный хеш строки — чтобы пассажир без пресета всегда выглядел одинаково */
@@ -54,6 +56,8 @@ export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
       return "child";
     case "troublemaker":
       return "troublemaker";
+    case "bartender":
+      return "bartender";
     case "elderly":
       return hash(actorId) % 2 ? "elderly-m" : "elderly-f";
     default:
@@ -198,6 +202,13 @@ export function resolveNavmeshPlacement(car: Car, actor: RuntimeActor): ScenePla
   return { x: pos.x, y: pos.y, zIndex: Math.round(pos.y) };
 }
 
+/** Статичная рабочая точка сотрудника за барной стойкой вагона-бистро. */
+function bartenderPlacement(car: Car): ScenePlacement | undefined {
+  if (car.type !== "bistro") return undefined;
+  const bar = TRAIN_NAVMESH_REGISTRY.bistro.specialZones?.barCounter?.pos;
+  return bar && { x: bar.x, y: bar.y, zIndex: Math.round(bar.y) + 1 };
+}
+
 export function projectGameScene(data: ScenarioData, sim: SimState, opts: ProjectOptions = {}): GameSceneModel {
   const follow = opts.follow ?? true;
   const conductor = data.actors.find((a) => a.role === "conductor");
@@ -263,6 +274,10 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
         const other = isFocused ? conductorRt : focusedRt;
         if (other && other.carId === car.id && other.id !== ra.id) facing = other.x >= ra.x ? "right" : "left";
       }
+      // Сидячий PNG нарисован в профиль. Фиксируем направление после диалоговой
+      // логики: пассажир остаётся привязан к своей точке seatPos и не «крутится»
+      // вслед за собеседником.
+      if (ra.seated && !walking) facing = "left";
 
       // Глубина: 0 — у окна дальнего борта, 1 — ближний край; проход — посередине
       const depth = car.width > 1 ? Math.min(1, Math.max(0, ra.y / (car.width - 1))) : 0.5;
@@ -284,7 +299,7 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
         // Во время визуальной паузы показывается только реакция на выбор. Таймер bubble
         // не тикает вместе с симуляцией, поэтому старая реплика не должна оставаться в кадре.
         bubble: phase === "consequence" ? null : ra.bubble?.text ?? null,
-        placement: resolveNavmeshPlacement(car, ra),
+        placement: def.role === "bartender" ? bartenderPlacement(car) ?? resolveNavmeshPlacement(car, ra) : resolveNavmeshPlacement(car, ra),
         usesWheelchair: def.accessibilityNeeds?.includes("wheelchair") ?? false,
       };
     });
