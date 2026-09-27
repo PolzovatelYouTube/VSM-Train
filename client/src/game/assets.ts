@@ -39,6 +39,13 @@ export interface CharacterImageFrame {
   nativeFacing: Facing;
 }
 
+/** Единая шкала роста персонажей относительно высоты изометрической сцены. */
+export const CHARACTER_HEIGHT_RATIO = {
+  adult: 0.2,
+  child: 0.16,
+  seated: 0.15,
+} as const;
+
 const characterFrame = (file: string, anchorY: number, heightRatio: number, nativeFacing: Facing = "right",): CharacterImageFrame => ({
   src: `${BASE}characters/${file}`,
   anchorX: 0.5,
@@ -48,29 +55,32 @@ const characterFrame = (file: string, anchorY: number, heightRatio: number, nati
 });
 
 const CHARACTER_IMAGE_FRAMES = {
+  conductor: {
+    stand: characterFrame("проводник.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+  },
   child: {
-    stand: characterFrame("child_boy_stand.png", 0.5, 0.2),
-    sit: characterFrame("child_boy_sit.png", 0.5, 0.15),
+    stand: characterFrame("child_boy_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.child),
+    sit: characterFrame("child_boy_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   elderly: {
-    stand: characterFrame("elderly_woman_stand.png", 0.5, 0.2),
-    sit: characterFrame("elderly_woman_sit.png", 0.5, 0.15),
+    stand: characterFrame("elderly_woman_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("elderly_woman_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   passenger: {
-    stand: characterFrame("passenger_male_stand.png", 0.5, 0.2),
-    sit: characterFrame("passenger_male_sit.png", 0.5, 0.15),
+    stand: characterFrame("passenger_male_stand.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("passenger_male_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   vip: {
-    stand: characterFrame("vip_businessman_walk.png", 0.5, 0.2),
-    sit: characterFrame("vip_businessman_sit.png", 0.5, 0.15),
+    stand: characterFrame("vip_businessman_walk.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("vip_businessman_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
   bartender: {
-    stand: characterFrame("bartender.png", 0.5, 0.2),
-    sit: characterFrame("bartender.png", 0.5, 0.2),
+    stand: characterFrame("bartender.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("bartender.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
   },
   wheelchair: {
-    stand: characterFrame("prm_passenger_wheelchair.png", 0.5, 0.2),
-    sit: characterFrame("prm_passenger_sit.png", 0.5, 0.15),
+    stand: characterFrame("prm_passenger_wheelchair.png", 0.5, CHARACTER_HEIGHT_RATIO.adult),
+    sit: characterFrame("prm_passenger_sit.png", 0.5, CHARACTER_HEIGHT_RATIO.seated),
   },
 } as const;
 
@@ -82,6 +92,7 @@ export function characterImageFrame(
   usesWheelchair: boolean,
 ): CharacterImageFrame | undefined {
   const pose = seated || state === "sit" ? "sit" : "stand";
+  if (preset === "conductor") return CHARACTER_IMAGE_FRAMES.conductor.stand;
   if (usesWheelchair) return CHARACTER_IMAGE_FRAMES.wheelchair[pose];
   if (preset === "child") return CHARACTER_IMAGE_FRAMES.child[pose];
   if (preset === "elderly-f" || preset === "elderly-m") return CHARACTER_IMAGE_FRAMES.elderly[pose];

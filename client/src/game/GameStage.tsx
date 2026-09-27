@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import type { Car } from "@shared/scenario";
 import type { GameSceneModel, SceneCharacter } from "@shared/visual";
-import { CAR_SCENE_ASSETS, CAR_SCENE_SIZE, SEAT_OCCLUSION, characterImageFrame, interiorPreset, LANDSCAPE_ASSETS } from "./assets";
+import { CAR_SCENE_ASSETS, CAR_SCENE_SIZE, CHARACTER_HEIGHT_RATIO, SEAT_OCCLUSION, characterImageFrame, interiorPreset, LANDSCAPE_ASSETS } from "./assets";
 import { WindowLandscape } from "./WindowLandscape";
 import { TrainInterior, NearSeats, TrainForeground } from "./TrainInterior";
 import { CharacterSprite } from "./CharacterSprite";
@@ -194,12 +194,17 @@ function PhotoActor({ c, sceneHeight, speaking, focused }: { c: SceneCharacter; 
   const anchorX = frame?.anchorX ?? 0.5;
   const anchorY = frame?.anchorY ?? (c.seated ? 0.2 : 1);
   const rasterHeight = frame ? sceneHeight * frame.heightRatio : 0;
-  const vectorScale = (sceneHeight * (c.seated ? 0.22 : 0.27)) / 250;
+  const fallbackHeightRatio = c.seated
+    ? CHARACTER_HEIGHT_RATIO.seated
+    : c.preset === "child"
+      ? CHARACTER_HEIGHT_RATIO.child
+      : CHARACTER_HEIGHT_RATIO.adult;
+  const vectorScale = (sceneHeight * fallbackHeightRatio) / 250;
   const mark = c.state === "positive" ? "positive" : c.state === "negative" ? "negative" : null;
 
   return (
     <div
-      className="g-photo-actor-position pointer-events-none absolute"
+      className={cn("g-photo-actor-position pointer-events-none absolute", speaking && "g-photo-actor--speaking")}
       style={{ left: `${c.placement.x}%`, top: `${c.placement.y}%`, opacity: c.dimmed ? 0.42 : 1, zIndex: c.placement.zIndex }}
       data-testid={`sprite-${c.id}`}
       data-state={c.state}
@@ -248,7 +253,7 @@ function Actor({ c, carLength, speaking, focused }: { c: SceneCharacter; carLeng
   const mark = c.state === "positive" ? "positive" : c.state === "negative" ? "negative" : null;
   return (
     <div
-      className="g-actor"
+      className={cn("g-actor", speaking && "g-actor--speaking")}
       style={{
         transform: `translate3d(${wx - 50}px, ${baseline - 250}px, 0) scale(${scale})`,
         opacity: c.dimmed ? 0.42 : 1,

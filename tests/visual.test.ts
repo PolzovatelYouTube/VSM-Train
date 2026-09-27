@@ -22,6 +22,7 @@ import {
   SPRITE_PRESETS,
   resolveNavmeshPlacement,
 } from "../shared/visual";
+import { CHARACTER_HEIGHT_RATIO, characterImageFrame } from "../client/src/game/assets";
 
 afterEach(() => vi.useRealTimers());
 
@@ -63,6 +64,16 @@ describe("визуальная сцена: обратная совместимо
 });
 
 describe("пресеты спрайтов", () => {
+  it("проводник использует PNG и общую шкалу роста взрослых персонажей", () => {
+    const conductor = characterImageFrame("conductor", "idle", false, false);
+    const passenger = characterImageFrame("passenger-m", "idle", false, false);
+
+    expect(conductor?.src).toContain("characters/проводник.png");
+    expect(conductor?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.adult);
+    expect(passenger?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.adult);
+    expect(characterImageFrame("child", "idle", false, false)?.heightRatio).toBe(CHARACTER_HEIGHT_RATIO.child);
+  });
+
   it("по роли и с fallback для неизвестного пресета", () => {
     expect(defaultPreset("conductor", "x")).toBe("conductor");
     expect(defaultPreset("troublemaker", "x")).toBe("troublemaker");

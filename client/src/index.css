@@ -595,7 +595,12 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .g-photo-actor-facing, .g-photo-motion { transform-origin: 50% 100%; }
 .g-st-idle .g-photo-body, .g-st-sit .g-photo-body, .g-st-listen .g-photo-body { animation: g-breath 3.6s ease-in-out infinite; }
 .g-st-walk .g-photo-body { animation: g-bob .42s ease-in-out infinite; }
-.g-st-talk .g-photo-body { animation: g-gesture 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+.g-st-talk .g-photo-body { animation: none; }
+.g-photo-body, .g-body { transition: filter .2s ease; }
+.g-photo-actor--speaking .g-photo-body,
+.g-actor--speaking .g-body {
+  filter: drop-shadow(0 0 7px rgba(255, 226, 96, .96)) drop-shadow(0 0 16px rgba(255, 176, 32, .72));
+}
 .g-st-positive .g-photo-body { animation: g-pop .6s cubic-bezier(.3, 1.6, .5, 1) 1; }
 .g-st-negative .g-photo-body { animation: g-shake .5s ease-in-out 1; }
 .g-body { transform-origin: 50% 100%; }
