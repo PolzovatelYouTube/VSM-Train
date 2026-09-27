@@ -190,6 +190,42 @@ describe("projectGameScene", () => {
     const m = projectGameScene(data, s, { viewCarId: data.train.cars[0].id, follow: false });
     expect(m.carId).toBe(data.train.cars[0].id);
   });
+
+  it("сидящий сохраняет направление кресла", () => {
+    const data = demoScenario();
+    const s = createSim(data);
+    const car = data.train.cars[1];
+    const seat = car.cells.find((c) => c.seat === "5A")!;
+    const actor = s.actors.find((a) => a.id === "a_trouble")!;
+
+    actor.carId = car.id;
+    actor.x = seat.x;
+    actor.y = seat.y;
+    actor.path = [];
+    actor.seated = true;
+    actor.facing = "right";
+
+    const projected = projectGameScene(data, s)
+      .characters.find((c) => c.id === actor.id);
+
+    expect(projected?.facing).toBe("left");
+  });
+
+  it("вертикальный waypoint не сбрасывает последнее направление", () => {
+    const data = demoScenario();
+    const s = createSim(data);
+    const actor = s.actors[0];
+
+    actor.facing = "left";
+    actor.path = [{
+      carId: actor.carId,
+      x: actor.x,
+      y: actor.y + 1,
+    }];
+
+    tick(s, 0.1, data, { pauseWhileDialogue: false });
+    expect(actor.facing).toBe("left");
+  });
 });
 
 /** Полный прогон демо: выбор по стратегии, с визуальной паузой (UI) или без */

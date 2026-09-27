@@ -13,7 +13,7 @@ import {
   LANDSCAPES,
   cellAt,
 } from "./scenario";
-import { type SimState, type LogEntry, type RuntimeActor, findEvent, findNode } from "./engine";
+import { type SimState, type LogEntry, type RuntimeActor, type Facing, findEvent, findNode } from "./engine";
 import { TRAIN_NAVMESH_REGISTRY, type Vector2D } from "./scenarios/all_cars_navmesh";
 
 // ───────────────────────────── Пресеты персонажей ─────────────────────────────
@@ -43,6 +43,33 @@ export const SPRITE_PRESET_LABEL: Record<SpritePreset, string> = {
   bartender: "Бармен вагона-бистро",
 };
 
+const LEGACY_PRESET_MAP: Record<string, SpritePreset> = {
+  passenger: "passenger-m",
+  passenger_f: "passenger-f",
+  passenger_m: "passenger-m",
+  woman: "passenger-f",
+  man: "passenger-m",
+
+  elderly: "elderly-m",
+  elderly_f: "elderly-f",
+  elderly_m: "elderly-m",
+  granny: "elderly-f",
+  grandpa: "elderly-m",
+
+  business: "vip",
+  businessman: "vip",
+  vip_passenger: "vip",
+
+  kid: "child",
+  child_passenger: "child",
+
+  hooligan: "troublemaker",
+  badguy: "troublemaker",
+
+  staff: "conductor",
+  provodnik: "conductor",
+};
+
 /** Стабильный хеш строки — чтобы пассажир без пресета всегда выглядел одинаково */
 const hash = (s: string) => s.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
@@ -68,10 +95,18 @@ export function defaultPreset(role: ActorRole, actorId: string): SpritePreset {
 export const isSpritePreset = (v: unknown): v is SpritePreset =>
   typeof v === "string" && (SPRITE_PRESETS as readonly string[]).includes(v);
 
+function normalizePreset(value: unknown): SpritePreset | null {
+  if (typeof value !== "string") return null;
+  if (isSpritePreset(value)) return value;
+
+  const normalized = value.trim().toLowerCase();
+  return LEGACY_PRESET_MAP[normalized] ?? null;
+}
+
 /** Пресет актора: авторский, если он известен, иначе — по роли */
 export function resolvePreset(actor: Pick<Actor, "id" | "role" | "visual">): SpritePreset {
-  const p = actor.visual?.preset;
-  return isSpritePreset(p) ? p : defaultPreset(actor.role, actor.id);
+  const preset = normalizePreset(actor.visual?.preset);
+  return preset ?? defaultPreset(actor.role, actor.id);
 }
 
 export const resolveLandscape = (data: ScenarioData): Landscape => {
@@ -110,7 +145,7 @@ export interface SceneCharacter {
   seated: boolean;
   state: CharacterState;
   emotion: Emotion;
-  facing: "left" | "right";
+  facing: Facing;
   dimmed: boolean;
   bubble: string | null;
   placement: ScenePlacement;
@@ -209,6 +244,17 @@ function bartenderPlacement(car: Car): ScenePlacement | undefined {
   return bar && { x: bar.x, y: bar.y, zIndex: Math.round(bar.y) + 1 };
 }
 
+function resolveSeatFacing(
+    car: Car,
+    actor: RuntimeActor,
+  ): Facing | undefined {
+    const mesh = TRAIN_NAVMESH_REGISTRY[car.type];
+    const cell = cellAt(car, Math.round(actor.x), Math.round(actor.y));
+    const seat = cell?.seat ? mesh.seats[cell.seat] : undefined;
+
+    return seat?.facing ?? (seat ? mesh.seatFacing : undefined);
+}
+
 export function projectGameScene(data: ScenarioData, sim: SimState, opts: ProjectOptions = {}): GameSceneModel {
   const follow = opts.follow ?? true;
   const conductor = data.actors.find((a) => a.role === "conductor");
@@ -268,17 +314,16 @@ export function projectGameScene(data: ScenarioData, sim: SimState, opts: Projec
       }
 
       // Направление взгляда: по ходу движения; в диалоге — на собеседника
-      let facing: "left" | "right" = ra.x > len / 2 ? "left" : "right";
-      if (walking && next && next.carId === ra.carId && Math.abs(next.x - ra.x) > 0.01) facing = next.x > ra.x ? "right" : "left";
-      else if (inDialogue && focusedRt && focusedRt.carId === car.id) {
+      let facing: Facing = ra.facing ?? (ra.x > len / 2 ? "left" : "right");
+      if (ra.seated && !walking) {
+        facing = resolveSeatFacing(car, ra) ?? facing;
+      } else if (inDialogue && focusedRt && focusedRt.carId === car.id) {
         const other = isFocused ? conductorRt : focusedRt;
-        if (other && other.carId === car.id && other.id !== ra.id) facing = other.x >= ra.x ? "right" : "left";
-      }
-      // Сидячий PNG нарисован в профиль. Фиксируем направление после диалоговой
-      // логики: пассажир остаётся привязан к своей точке seatPos и не «крутится»
-      // вслед за собеседником.
-      if (ra.seated && !walking) facing = "left";
 
+        if (other && other.carId === car.id && other.id !== ra.id) {
+          facing = other.x >= ra.x ? "right" : "left";
+        }
+      }
       // Глубина: 0 — у окна дальнего борта, 1 — ближний край; проход — посередине
       const depth = car.width > 1 ? Math.min(1, Math.max(0, ra.y / (car.width - 1))) : 0.5;
 

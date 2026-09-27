@@ -1,4 +1,5 @@
 import type { CarType } from "../scenario";
+import type { Facing } from "../engine";
 
 /**
  * Единый реестр изометрических навигационных карт (NavMesh) для вагонов ВСМ.
@@ -21,6 +22,7 @@ export interface SeatMeta {
   seatPos: Vector2D;     // Точка сидения (положение спрайта 'sitting')
   approachPos: Vector2D; // Точка выхода в проход (положение спрайта 'standing'/'walking')
   depth: number;         // z-index для корректного перекрытия спрайтов в изометрии
+  facing?: Facing;       // Направление спрайта
 }
 
 export interface CarNavMesh {
@@ -29,6 +31,7 @@ export interface CarNavMesh {
   doorWest: Vector2D;         // Вход из тамбура слева
   doorEast: Vector2D;         // Переход в следующий вагон справа
   aisleSpine: Vector2D[];     // Главный проход вагона (узлы BFS-маршрутизации)
+  seatFacing: Facing;
   seats: Record<string, SeatMeta>;
   specialZones?: Record<string, { name: string; pos: Vector2D; approachPos: Vector2D }>;
 }
@@ -40,6 +43,7 @@ export interface CarNavMesh {
 export const NAVMESH_BUSINESS: CarNavMesh = {
   id: "business",
   name: "Бизнес-класс ВСМ (2+2)",
+  seatFacing: "left",
   doorWest: { x: 21.5, y: 71.3 }, // Вход из тамбура
   doorEast: { x: 88.2, y: 13.9 }, // Переход в следующий вагон
   aisleSpine: [
@@ -56,7 +60,7 @@ export const NAVMESH_BUSINESS: CarNavMesh = {
   seats: {
     // ── Левая сторона (у дверей и левых окон) ──
     // Ряд 1: одиночное кресло у тамбура
-    "1A": { id: "1A", seatPos: { x: 20.1, y: 55.6 }, approachPos: { x: 27.5, y: 61.5 }, depth: 30 },
+    "1A": { id: "1A", seatPos: { x: 20.1, y: 55.6 }, approachPos: { x: 27.5, y: 61.5 }, depth: 30},
 
     // Ряд 2: пара кресел
     "2A": { id: "2A", seatPos: { x: 30.5, y: 44.5 }, approachPos: { x: 36.5, y: 52.5 }, depth: 38 },
@@ -101,6 +105,7 @@ export const NAVMESH_BUSINESS: CarNavMesh = {
 export const NAVMESH_FIRST_CLASS: CarNavMesh = {
   id: "first",
   name: "Первый класс (компоновка 1+2)",
+  seatFacing: "left",
   doorWest: { x: 21.5, y: 71.3 },
   doorEast: { x: 88.2, y: 13.9 },
   aisleSpine: [
@@ -136,6 +141,7 @@ export const NAVMESH_FIRST_CLASS: CarNavMesh = {
 export const NAVMESH_COMFORT: CarNavMesh = {
   id: "comfort",
   name: "Комфорт-класс (с детской игровой комнатой)",
+  seatFacing: "left",
   doorWest: { x: 21.5, y: 71.3 },
   doorEast: { x: 88.2, y: 13.9 },
   aisleSpine: [
@@ -150,24 +156,31 @@ export const NAVMESH_COMFORT: CarNavMesh = {
     { x: 88.2, y: 13.9 },
   ],
   seats: {
-    "1A": { id: "1A", seatPos: { x: 37.0, y: 65.5 }, approachPos: { x: 34.0, y: 61.5 }, depth: 35 },
+    "1A": { id: "1A", seatPos: { x: 36.9, y: 67.9 }, approachPos: { x: 34.0, y: 61.5 }, depth: 35 },
     "1B": { id: "1B", seatPos: { x: 40.5, y: 68.5 }, approachPos: { x: 35.5, y: 62.5 }, depth: 37 },
-    "2A": { id: "2A", seatPos: { x: 39.0, y: 45.0 }, approachPos: { x: 42.0, y: 52.0 }, depth: 42 },
-    "2B": { id: "2B", seatPos: { x: 43.5, y: 49.0 }, approachPos: { x: 44.5, y: 54.0 }, depth: 44 },
-    "2C": { id: "2C", seatPos: { x: 51.5, y: 58.5 }, approachPos: { x: 47.5, y: 55.0 }, depth: 46 },
-    "2D": { id: "2D", seatPos: { x: 55.0, y: 61.5 }, approachPos: { x: 49.0, y: 56.5 }, depth: 48 },
-    "3A": { id: "3A", seatPos: { x: 47.5, y: 37.0 }, approachPos: { x: 50.0, y: 44.0 }, depth: 52 },
-    "3B": { id: "3B", seatPos: { x: 51.8, y: 41.0 }, approachPos: { x: 52.5, y: 46.0 }, depth: 54 },
-    "3C": { id: "3C", seatPos: { x: 60.5, y: 50.0 }, approachPos: { x: 56.0, y: 47.0 }, depth: 56 },
-    "3D": { id: "3D", seatPos: { x: 64.0, y: 53.0 }, approachPos: { x: 58.0, y: 48.5 }, depth: 58 },
-    "4A": { id: "4A", seatPos: { x: 56.5, y: 28.5 }, approachPos: { x: 59.0, y: 35.5 }, depth: 62 },
-    "4B": { id: "4B", seatPos: { x: 60.8, y: 32.5 }, approachPos: { x: 61.5, y: 37.5 }, depth: 64 },
-    "4C": { id: "4C", seatPos: { x: 69.5, y: 41.5 }, approachPos: { x: 65.0, y: 38.5 }, depth: 66 },
-    "4D": { id: "4D", seatPos: { x: 73.0, y: 44.5 }, approachPos: { x: 67.0, y: 40.0 }, depth: 68 },
-    "5A": { id: "5A", seatPos: { x: 65.5, y: 20.0 }, approachPos: { x: 68.0, y: 27.0 }, depth: 72 },
-    "5B": { id: "5B", seatPos: { x: 69.8, y: 24.0 }, approachPos: { x: 70.5, y: 29.0 }, depth: 74 },
-    "5C": { id: "5C", seatPos: { x: 78.5, y: 33.0 }, approachPos: { x: 74.0, y: 30.0 }, depth: 76 },
-    "5D": { id: "5D", seatPos: { x: 82.0, y: 36.0 }, approachPos: { x: 76.0, y: 31.5 }, depth: 78 },
+    "2A": { id: "2A", seatPos: { x: 35.2, y: 50.8 }, approachPos: { x: 43.2, y: 57.5 }, depth: 42 },
+    "2B": { id: "2B", seatPos: { x: 38.1, y: 53.7 }, approachPos: { x: 43.2, y: 57.8 }, depth: 44 },
+    "2C": { id: "2C", seatPos: { x: 50.3, y: 58.1 }, approachPos: { x: 47.5, y: 55.0 }, depth: 46 },
+    "2D": { id: "2D", seatPos: { x: 53.9, y: 60.3 }, approachPos: { x: 49.0, y: 56.5 }, depth: 48 },
+    "3A": { id: "3A", seatPos: { x: 43.5, y: 44.6 }, approachPos: { x: 50.4, y: 52.6 }, depth: 52 },
+    "3B": { id: "3B", seatPos: { x: 45.4, y: 48.0 }, approachPos: { x: 50.1, y: 52.3 }, depth: 54 },
+    "3C": { id: "3C", seatPos: { x: 58.7, y: 50.4 }, approachPos: { x: 56.0, y: 47.0 }, depth: 56 },
+    "3D": { id: "3D", seatPos: { x: 61.3, y: 53.6 }, approachPos: { x: 58.0, y: 48.5 }, depth: 58 },
+    "4A": { id: "4A", seatPos: { x: 57.3, y: 34.8 }, approachPos: { x: 63.2, y: 42.2 }, depth: 62 },
+    "4B": { id: "4B", seatPos: { x: 60.0, y: 38.2 }, approachPos: { x: 63.9, y: 41.9 }, depth: 64 },
+    "4C": { id: "4C", seatPos: { x: 67.5, y: 44.2 }, approachPos: { x: 63.5, y: 42.2 }, depth: 66 },
+    "4D": { id: "4D", seatPos: { x: 69.7, y: 47.7 }, approachPos: { x: 62.7, y: 42.6 }, depth: 68 },
+    "5A": { id: "5A", seatPos: { x: 63.9, y: 30.2 }, approachPos: { x: 70.8, y: 36.5 }, depth: 72 },
+    "5B": { id: "5B", seatPos: { x: 66.0, y: 33.5 }, approachPos: { x: 70.7, y: 36.7 }, depth: 74 },
+    "5C": { id: "5C", seatPos: { x: 74.5, y: 38.3 }, approachPos: { x: 71.5, y: 36.6 }, depth: 76 },
+    "5D": { id: "5D", seatPos: { x: 77.7, y: 41.3 }, approachPos: { x: 71.0, y: 36.9 }, depth: 78 },
+    "6A": { id: "6A", seatPos: { x: 70.6, y: 25.9 }, approachPos: { x: 77.1, y: 32.3 }, depth: 80 },
+    "6B": { id: "6A", seatPos: { x: 72.7, y: 28.2 }, approachPos: { x: 77.1, y: 32.3 }, depth: 82 },
+    "6C": { id: "6A", seatPos: { x: 82.2, y: 32.1 }, approachPos: { x: 79.5, y: 29.8 }, depth: 84 },
+    "6D": { id: "6A", seatPos: { x: 84.4, y: 35.3 }, approachPos: { x: 79.5, y: 29.8 }, depth: 86 },
+    "7A": { id: "7A", seatPos: { x: 77.5, y: 20.3 }, approachPos: { x: 84.4, y: 26.1 }, depth: 88 },
+    "7B": { id: "7A", seatPos: { x: 77.5, y: 20.3 }, approachPos: { x: 84.4, y: 26.1 }, depth: 90 },
+    "7C": { id: "5C", seatPos: { x: 74.5, y: 38.3 }, approachPos: { x: 71.5, y: 36.6 }, depth: 76 },
   },
   specialZones: {
     kidsPlayroom: {
@@ -182,6 +195,7 @@ export const NAVMESH_COMFORT: CarNavMesh = {
 export const NAVMESH_BISTRO_STANDART: CarNavMesh = {
   id: "bistro_standart",
   name: "Вагон-бистро со столиками и барной стойкой",
+  seatFacing: "right",
   doorWest: { x: 21.5, y: 71.3 },
   doorEast: { x: 88.2, y: 13.9 },
   aisleSpine: [

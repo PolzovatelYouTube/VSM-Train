@@ -574,6 +574,20 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .g-sway { animation: g-sway 5s ease-in-out infinite; transform-origin: 50% 100%; }
 @keyframes g-sway { 0%, 100% { transform: translateY(0) rotate(0) } 30% { transform: translateY(1.5px) rotate(.06deg) } 65% { transform: translateY(-.5px) rotate(-.05deg) } }
 
+.g-facing,
+.g-proportions,
+.g-photo-actor-facing,
+.g-photo-motion {
+  transform-origin: 50% 100%;
+}
+
+.g-photo-seat-occluder {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  contain: paint;
+}
+
 .g-camera { transform-origin: 0 0; transition: transform .9s cubic-bezier(.3, .7, .2, 1); will-change: transform; }
 .g-actor { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; transition: transform .12s linear, opacity .4s ease; }
 .g-photo-scene { background: transparent; }

@@ -49,12 +49,15 @@ export interface Waypoint {
   y: number;
 }
 
+export type Facing = "left" | "right";
+
 export interface RuntimeActor {
   id: string;
   carId: string;
   x: number; // дробная позиция для плавной анимации
   y: number;
   path: Waypoint[];
+  facing: Facing;
   stepIndex: number;
   waitUntil: number;
   seated: boolean;
@@ -160,6 +163,7 @@ export function createSim(data: ScenarioData): SimState {
       x: a.spawn.x,
       y: a.spawn.y,
       path: [],
+      facing: "right" as const,
       stepIndex: 0,
       waitUntil: 0,
       seated: false,
@@ -430,6 +434,9 @@ function moveAlongPath(ra: RuntimeActor, dt: number) {
     }
     const dx = wp.x - ra.x,
       dy = wp.y - ra.y;
+    if (Math.abs(dx) > 0.001) {
+      ra.facing = dx > 0 ? "right" : "left";
+    }
     const dist = Math.hypot(dx, dy);
     if (dist <= budget) {
       ra.x = wp.x;

@@ -76,15 +76,30 @@ export const CharacterSprite = memo(function CharacterSprite({ preset, accent, s
   const up = seated ? 44 : 0; // сидя верх тела ниже
 
   return (
-    <div className={cn(`g-st-${state}`, className)} style={{ width: 100, height: 250 }}>
-      <svg
-        viewBox="0 0 100 250"
-        width={100}
-        height={250}
-        className="g-body overflow-visible"
-        style={{ transform: `scale(${facing === "left" ? -scale : scale}, ${scale})`, transformOrigin: "50% 100%" }}
-        aria-hidden
+    <div className={cn(`g-st-${state}`, className)} style={{ width: 100, height: 250}}>
+      <div
+        className="g-facing"
+        style={{
+          width: 100,
+          height: 250,
+          transform: `scaleX(${facing === "left" ? -1 : 1})`,
+        }}
       >
+      <div
+        className="g-proportions"
+        style={{
+          width: 100,
+          height: 250,
+          transform: `scale(${scale})`,
+        }}
+      >
+        <svg
+          viewBox="0 0 100 250"
+          width={100}
+          height={250}
+          className="g-body overflow-visible"
+          aria-hidden
+        >
         {/* тень */}
         <ellipse cx={50} cy={247} rx={30} ry={5} fill="#000" opacity=".16" />
         {/* ноги */}
@@ -153,6 +168,8 @@ export const CharacterSprite = memo(function CharacterSprite({ preset, accent, s
         </g>
         {unknown && <text x={50} y={140} textAnchor="middle" fontSize={40} fill="#fff" opacity=".9">?</text>}
       </svg>
+      </div>
+      </div>
     </div>
   );
 });
