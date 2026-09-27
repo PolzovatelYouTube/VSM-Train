@@ -777,7 +777,7 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 }
 
 /* Раскладка: мобильный портрет по умолчанию → альбомная → десктоп */
-.game-layout { display: grid; gap: .75rem; grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "dialogue" "side"; }
+.game-layout { position: relative; display: grid; gap: .75rem; grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "dialogue" "side"; }
 .game-stage { grid-area: stage; height: 45svh; min-height: 240px; }
 .game-dialogue { grid-area: dialogue; }
 .game-side { grid-area: side; min-width: 0; }
@@ -790,7 +790,17 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
   .game-layout { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "stage side"; }
   .game-layout--complete { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage"; }
   .game-stage { height: clamp(420px, calc(100vh - 11rem), 720px); }
-  .game-dialogue { grid-area: stage; align-self: end; z-index: 20; margin: 0 1rem 1rem; max-height: 55%; overflow-y: auto; }
+  .game-dialogue {
+    position: absolute;
+    z-index: 20;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    grid-area: stage;
+    max-height: calc(100% - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
