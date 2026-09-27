@@ -8,6 +8,37 @@
 
 ## Быстрый старт
 
+### Вариант Docker
+Нужен установленный и запущенный Docker Desktop.
+
+1. Склонируйте проект:
+
+   ```bash
+   git clone https://github.com/PolzovatelYouTube/VSM-Train.git
+   cd VSM-Train
+   ```
+
+2. Создайте в корне проекта файл `.env`:
+
+   ```dotenv
+   JWT_SECRET=замените-на-длинную-случайную-строку
+   ```
+
+   Не добавляйте `.env` в Git.
+
+3. Запустите приложение:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. Откройте http://localhost:5000.
+
+Для просмотра ошибок: `docker compose logs --tail=100 vsm-train`.  
+Для остановки: `docker compose down` (без `-v`, чтобы не удалять том с данными).
+
+### Вариант консоль
+
 ```bash
 npm install
 npm run dev        # http://localhost:5000; клиент обновляется, сервер перезапускается при изменениях
